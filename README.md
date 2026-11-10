@@ -1,5 +1,7 @@
 # DGReader Shark / DGReader 鲨鱼版
+
 文字 → 规则 → 震动 · 把你的文字游戏变成震动游戏~
+
 给 **负鼠（Opossum）振动控制器** 连接 RPG Maker 等文字游戏使用的文字读取与规则触发工具。
 
 读取游戏对话框、战斗播报、战斗日志，按规则直接驱动负鼠振动；另附带 Windows OCR 模式，用于 RPG Maker MV/MZ 之外、无法安装插件的文字类游戏。
