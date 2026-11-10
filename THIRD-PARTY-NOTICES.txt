@@ -19,7 +19,12 @@ OCR uses the OCR engine included with Microsoft Windows
 (Windows.Media.Ocr). It is a system component and is not
 redistributed with this archive.
 
-3. Other components
+3. UnityDoorstop
+------------------
+UnityDoorstop 4.6.0 by NeighTools, licensed under LGPL-2.1.
+The full license text is in app/unity/doorstop/LICENSE.
+
+4. Other components
 -------------------
 This archive does not include DGPro binaries, DGPro assets, game
 assets, fonts, or other third-party game files.

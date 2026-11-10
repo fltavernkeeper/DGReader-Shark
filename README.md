@@ -16,6 +16,7 @@
 - 波形库导入/导出（`.pulse` / JSON）
 - 内置中文 / 日本語 / English，其他语言可用浏览器翻译
 - OCR（附赠）：Windows 自带 OCR，框选屏幕区域识别文字后交给规则
+- Unity Mono 文本探针：Doorstop + TMP/UGUI，支持部分 Unity 文字游戏（IL2CPP 暂不支持）
 
 ## 首次连接负鼠（Windows 配对）
 
@@ -45,6 +46,7 @@ OCR 模式需要先在 Windows 设置中安装对应语言的“光学字符识�
 - 插件模式：RPG Maker MV / MZ（MV 1.x 实机验证，MZ 未实机验证）
 - OCR 模式：Unity、独立 AVG 等能显示文字的游戏
 - 设备：负鼠 Opossum（直连 BLE，无需额外软件）
+- Unity：仅 Mono + TMP/UGUI；IL2CPP、自绘文字请用 OCR
 
 ## 许可证
 

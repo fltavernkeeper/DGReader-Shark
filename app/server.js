@@ -24,6 +24,7 @@ const OpossumDevice = require('./device');
 const ProjectStore = require('./projectstore');
 const { WaveLibrary, parsePulse } = require('./waves');
 const installer = require('./installer');
+const unityInstaller = require('./unity-installer');
 
 // ---------------------------------------------------------------------------
 // 参数
@@ -107,6 +108,10 @@ function compileTrigger(t) {
     if (src === 'ocr') {
         if (op === 'contains') { return `ocr.includes(${JSON.stringify(String(v == null ? '' : v))})`; }
         if (op === 'regex') { return `new RegExp(${JSON.stringify(String(v == null ? '' : v))}).test(ocr)`; }
+    }
+    if (src === 'unity') {
+        if (op === 'contains') { return `unity.includes(${JSON.stringify(String(v == null ? '' : v))})`; }
+        if (op === 'regex') { return `new RegExp(${JSON.stringify(String(v == null ? '' : v))}).test(unity)`; }
     }
     if (src === 'tickerId') {
         if (op === 'equals') { return `tickerId === ${JSON.stringify(String(v || ''))}`; }
@@ -251,6 +256,10 @@ const state = {
     ocr: '',
     ocrRaw: '',
     ocrAt: 0,
+    unityText: '',
+    unityName: '',
+    unityChoices: [],
+    unityAt: 0,
     lastMessageAt: 0,
     lastTickerAt: 0,
     events: 0
@@ -266,7 +275,7 @@ function resetChannels() {
 // SSE（给浏览器界面用）
 // ---------------------------------------------------------------------------
 const sseClients = new Set();
-const BROADCAST_TYPES = new Set(['hello', 'map', 'message', 'message_end', 'ticker', 'ticker_meta', 'snapshot', 'var', 'switch', 'battlelog']);
+const BROADCAST_TYPES = new Set(['hello', 'map', 'message', 'message_end', 'ticker', 'ticker_meta', 'snapshot', 'var', 'switch', 'battlelog', 'unity']);
 
 function broadcast(obj) {
     const line = 'data: ' + JSON.stringify(obj) + '\n\n';
@@ -357,6 +366,9 @@ function buildContext() {
         tickerActor: state.tickerActor,
         ocr: state.ocr,
         ocrRaw: state.ocrRaw,
+        unity: state.unityText,
+        unityName: state.unityName,
+        unityChoices: state.unityChoices,
         msgIcons: msgCodes.icons,
         msgColors: msgCodes.colors,
         tickerIcons: tickCodes.icons,
@@ -536,6 +548,30 @@ function handle(obj) {
             if (Array.isArray(obj.actors)) { state.actors = obj.actors; }
             break;
 
+        case 'unity': {
+            const kind = String(obj.kind || '').toUpperCase();
+            const text = String(obj.text || '');
+            if (!text) { break; }
+            state.unityAt = Date.now();
+            if (kind === 'NAME') {
+                state.unityName = text;
+                state.messageSpeaker = text;
+                changed = true;
+            } else if (kind === 'DIALOGUE') {
+                if (text !== state.unityText) { state.unityChoices = []; }
+                state.unityText = text;
+                state.messageRaw = text;
+                state.message = expandText(text);
+                state.messageSpeaker = state.unityName || '';
+                changed = true;
+            } else if (kind === 'CHOICE') {
+                if (state.unityChoices.indexOf(text) < 0) { state.unityChoices.push(text); }
+                changed = true;
+            }
+            if (VERBOSE) { console.log(`  unity ${kind}: ${text}`); }
+            break;
+        }
+
         case 'var': {
             const id = Number(obj.id);
             state.vars[id] = obj.value;
@@ -649,6 +685,7 @@ function handle(obj) {
     }
 
     if (changed) { scheduleEval(); }
+    if (obj.t === 'unity') { obj.speaker = state.messageSpeaker; }
     if (BROADCAST_TYPES.has(obj.t)) { broadcast({ type: 'event', event: obj }); }
 }
 
@@ -715,7 +752,7 @@ function validateProfile(p) {
                 if (!t.name || !(p.switches && Object.prototype.hasOwnProperty.call(p.switches, t.name))) {
                     throw new Error(r.id + ' 的开关不存在：' + (t.name || ''));
                 }
-            } else if (['msg', 'ticker', 'battlelog', 'ocr', 'tickerId'].indexOf(t.source) < 0) {
+            } else if (['msg', 'ticker', 'battlelog', 'ocr', 'unity', 'tickerId'].indexOf(t.source) < 0) {
                 throw new Error(r.id + ' 的触发来源无效');
             } else if (t.source === 'tickerId') {
                 if (t.value === undefined || String(t.value).trim() === '') { throw new Error(r.id + ' 缺少播报 ID'); }
@@ -845,6 +882,9 @@ if (require.main === module) {
                     tickerKind: state.tickerKind,
                     ocr: state.ocr,
                     ocrRaw: state.ocrRaw,
+                    unity: state.unityText,
+                    unityName: state.unityName,
+                    unityChoices: state.unityChoices,
                     actor: state.actor,
                     vars: state.vars,
                     rules: rules.map((r) => ({ id: r.id, active: r.active, enabled: r.enabled, when: r.when })),
@@ -1073,31 +1113,41 @@ if (require.main === module) {
             }
 
             // ---------------- 游戏插件安装 ----------------
+            function pickGameInstaller(dir) {
+                try {
+                    if (unityInstaller.detect(dir).ok) { return unityInstaller; }
+                } catch (e) { /* fallback */ }
+                return installer;
+            }
+
             if (url === '/api/game/status' && req.method === 'GET') {
                 const q = new URL(req.url, 'http://localhost').searchParams;
                 const dir = q.get('dir') || profile.gameDir || '';
-                jsonRes(res, 200, { ok: true, status: installer.status(dir) });
+                const inst = pickGameInstaller(dir);
+                jsonRes(res, 200, { ok: true, status: inst.status(dir) });
                 return;
             }
 
             if (url === '/api/game/install' && req.method === 'POST') {
                 withJson(req, res, (m) => {
-                    const r = installer.install(m.gameDir);
+                    const inst = pickGameInstaller(m.gameDir);
+                    const r = inst.install(m.gameDir);
                     const proj = store.activeProject();
                     if (proj && m.gameDir) {
                         proj.gameDir = path.resolve(m.gameDir);
                         store.save();
                         reloadActive();
                     }
-                    jsonRes(res, 200, { ok: true, result: r, status: installer.status(m.gameDir) });
+                    jsonRes(res, 200, { ok: true, result: r, status: inst.status(m.gameDir) });
                 });
                 return;
             }
 
             if (url === '/api/game/remove' && req.method === 'POST') {
                 withJson(req, res, (m) => {
-                    const r = installer.remove(m.gameDir);
-                    jsonRes(res, 200, { ok: true, result: r, status: installer.status(m.gameDir) });
+                    const inst = pickGameInstaller(m.gameDir);
+                    const r = inst.remove(m.gameDir);
+                    jsonRes(res, 200, { ok: true, result: r, status: inst.status(m.gameDir) });
                 });
                 return;
             }

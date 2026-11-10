@@ -8,6 +8,9 @@ GPL-3.0-only parts of DGReader:
   app/*.js          Node.js application source
   app/*.ps1         PowerShell helpers (OCR / BLE)
   app/DGRMHook.js   RPG Maker MV/MZ plugin source
+  app/unity-installer.js  Unity Mono installer
+  app/unity/UnityProbe.cs Unity Doorstop text probe source
+  app/unity/DGReader.UnityProbe.dll  compiled probe
   web/*.html        Web UI source
   web/*.js          Web UI source
   start.bat

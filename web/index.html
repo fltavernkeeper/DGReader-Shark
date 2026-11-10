@@ -218,6 +218,7 @@
                 <option value="ticker">战斗播报</option>
                 <option value="battlelog">战斗日志</option>
                 <option value="ocr">OCR 文本</option>
+                <option value="unity">Unity 文本</option>
                 <option value="tickerId">播报 ID</option>
                 <option value="var">变量数值</option>
                 <option value="switch">开关状态</option>
@@ -406,7 +407,7 @@
       <div class="hd"><b>游戏插件</b><span>安装 / 移除 DGRMHook</span></div>
       <div class="bd">
         <div class="row">
-          <label class="f" style="flex:1">游戏目录<input id="gDir" placeholder="点击“浏览…”选择游戏本体目录（包含 www 或 js）" /></label>
+          <label class="f" style="flex:1">游戏目录<input id="gDir" placeholder="选择游戏本体目录（RPG Maker 或 Unity 游戏根目录）" /></label>
           <button class="btn" id="btnGBrowse">浏览…</button>
         </div>
         <div class="row" style="margin-top:10px">
@@ -417,7 +418,9 @@
         <div class="note" style="margin-top:10px">
           插件作用：从游戏运行时读取已经解码好的文字，避免直接解析数据文件时
           因 UTF-8 / GBK / Shift-JIS 等编码差异而读不出来。<br>
-          安装/移除只改插件注册项，不会转码或改写原文件编码，并会自动备份。
+          RPG Maker 会安装 DGRMHook 插件；Unity Mono 游戏会安装 Doorstop 文本探针。RPG Maker MV制作的游戏大部分可以读取，Unity制作的游戏并没有完全适配，实在不行请用OCR功能。<br>
+          <span style="color:var(--warn)">不要对具有联网的Unity游戏使用该工具，可能被判定为使用外挂！</span><br>
+          安装/移除只改插件/探针文件，不会改写游戏原始数据，并会自动备份。
         </div>
         <div class="note" id="gStatus" style="margin-top:10px">未检查</div>
       </div>
@@ -497,7 +500,7 @@
         <div class="note" id="ocrResult" style="margin-top:10px">识别结果会显示在这里。</div>
 
         <div class="note" style="margin-top:10px">
-          识别出的文字会作为【规则】里“OCR 文本”来源的输入；文字稳定约 2 帧后才会触发规则。
+          识别出的文字会作为【规则】里“OCR 文本”来源的输入；文字稳定约 2 帧后才会触发规则。<br>不在规则中勾选 OCR 文本来源就无法触发规则。
         </div>
 
         <div class="note" style="margin-top:12px;color:var(--warn)">
@@ -630,7 +633,7 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.03 By FL</span></footer>
+<footer><span class="ver">v1.04 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
@@ -885,6 +888,7 @@
 // ---------------- 规则编辑器 ----------------
   var SOURCE_NAMES = {
     msg: '对话框', ticker: '战斗播报', battlelog: '战斗日志', ocr: 'OCR 文本',
+    unity: 'Unity 文本',
     tickerId: '播报 ID', var: '变量', switch: '开关', expression: '高级表达式'
   };
   var OP_NAMES = {
@@ -985,7 +989,7 @@
     var ops;
     if (source === 'msg' || source === 'ticker' || source === 'battlelog') {
       ops = ['contains', 'regex', 'icon', 'color'];
-    } else if (source === 'ocr') {
+    } else if (source === 'ocr' || source === 'unity') {
       ops = ['contains', 'regex'];
     } else if (source === 'tickerId') {
       ops = ['equals', 'prefix', 'contains'];
@@ -1467,6 +1471,12 @@
       .then(function (r) { return r.json(); }).then(function (d) {
         var s = d.status || {};
         if (!s.ok) { setStatus($('gStatus'), s.error || '无效目录', false); return; }
+        if (s.engine === 'unity-mono') {
+          $('gStatus').textContent = 'Unity Mono 探针' + (s.installed ? '已安装' : '未安装') +
+            ' / ' + (s.hasTmp ? '检测到 TextMeshPro' : '未检测到 TextMeshPro（可能只支持部分文本）');
+          $('gStatus').className = s.installed ? 'note ok' : 'note';
+          return;
+        }
         $('gStatus').textContent = '插件' + (s.installed ? '已安装' : '未安装') +
           ' / ' + (s.registered ? '已注册' : '未注册') + ' / 插件总数 ' + s.entries +
           ' / 编码 ' + (s.encoding || '?') + (s.bom ? ' (BOM)' : '') +
@@ -1484,14 +1494,14 @@
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) { throw new Error(d.error || '安装失败'); }
       gStatus();
-      setStatus($('gStatus'), '插件已安装（已备份 plugins.js）', true);
+      setStatus($('gStatus'), d.status && d.status.engine === 'unity-mono' ? 'Unity 探针已安装' : '插件已安装（已备份 plugins.js）', true);
     }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
   }
 
   function gRemove() {
     var dir = $('gDir').value.trim();
     if (!dir) { setStatus($('gStatus'), '请先选择游戏目录', false); return; }
-    if (!confirm('从游戏移除 DGRMHook 插件？（会备份 plugins.js）')) { return; }
+    if (!confirm('从游戏移除插件/探针？')) { return; }
     fetch('/api/game/remove', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ gameDir: dir })
@@ -1827,6 +1837,9 @@
         break;
       case 'map': setMap(ev.id, ev.name); break;
       case 'message': showMessage(ev); break;
+      case 'unity':
+        if (ev.kind === 'DIALOGUE') { showMessage({ text: ev.text, speaker: ev.speaker || '', phase: 'live' }); }
+        break;
       case 'message_end': clearMessage(); break;
       case 'ticker_meta': state.lastMeta = ev; break;
       case 'ticker': showTicker(ev); break;
@@ -1844,12 +1857,12 @@
 
   function connect() {
     var es = new EventSource('/events');
-    es.onopen = function () { setConn(true); };
+    es.onopen = function () { setConn(true); loadStateSnapshot(); };
     es.onerror = function () { setConn(false); };
     es.onmessage = function (e) {
       var msg;
       try { msg = JSON.parse(e.data); } catch (err) { return; }
-      if (msg.type === 'conn') { setConn(msg.connected); return; }
+      if (msg.type === 'conn') { setConn(msg.connected); if (msg.connected) { loadStateSnapshot(); } return; }
       if (msg.type === 'action' || msg.type === 'log') { addLog(msg); return; }
       if (msg.type === 'device') { renderDevice(msg.device); return; }
     if (msg.type === 'ocr') {
@@ -1948,20 +1961,23 @@
   ocrBindCanvas();
   window.addEventListener('resize', ocrSetupCanvas);
 
-  fetch('/state').then(function (r) { return r.json(); }).then(function (s) {
-    setConn(!!s.connected);
-    setMap(s.mapId, s.map);
-    if (s.vars) { for (var k in s.vars) { state.vars[k] = s.vars[k]; } }
-    if (s.actors) { state.actors = s.actors; }
-    if (s.party) { state.party = s.party; }
-    if (s.messageRaw) { showMessage({ text: s.messageRaw, speaker: s.messageSpeaker, eventName: s.messageEventName, phase: 'last' }); }
-    if (s.tickerRaw) { state.lastMeta = { kind: s.tickerKind, id: s.tickerId }; showTicker({ text: s.tickerRaw }); }
-    if (s.battlelogRaw) { state.blLines = [s.battlelogRaw]; renderBattlelog(); }
-    if (s.output) { output = s.output; fillOutput(); }
-    if (s.device) { renderDevice(s.device); }
-    if (s.ocr) { $('ocrResult').textContent = s.ocr; }
-  }).catch(function () {});
+  function loadStateSnapshot() {
+    return fetch('/state').then(function (r) { return r.json(); }).then(function (s) {
+      setConn(!!s.connected);
+      setMap(s.mapId, s.map);
+      if (s.vars) { for (var k in s.vars) { state.vars[k] = s.vars[k]; } }
+      if (s.actors) { state.actors = s.actors; }
+      if (s.party) { state.party = s.party; }
+      if (s.messageRaw) { showMessage({ text: s.messageRaw, speaker: s.messageSpeaker, eventName: s.messageEventName, phase: 'last' }); }
+      if (s.tickerRaw) { state.lastMeta = { kind: s.tickerKind, id: s.tickerId }; showTicker({ text: s.tickerRaw }); }
+      if (s.battlelogRaw) { state.blLines = [s.battlelogRaw]; renderBattlelog(); }
+      if (s.output) { output = s.output; fillOutput(); }
+      if (s.device) { renderDevice(s.device); }
+      if (s.ocr) { $('ocrResult').textContent = s.ocr; }
+    }).catch(function () {});
+  }
 
+  loadStateSnapshot();
   loadProfile().catch(function () {});
   loadProjects().catch(function () {});
   loadWaves().catch(function () {});
