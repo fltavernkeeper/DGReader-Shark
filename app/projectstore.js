@@ -46,7 +46,7 @@ class ProjectStore {
         const legacy = readJson(this.legacyProfilePath, null);
         const project = {
             id: 'celesphonia',
-            name: (legacy && legacy.game) || '天穹法妮雅',
+            name: (legacy && legacy.game) || '默认游戏',
             gameDir: (legacy && legacy.gameDir) || '',
             vars: (legacy && legacy.vars) || DEFAULT_VARS,
             switches: (legacy && legacy.switches) || DEFAULT_SWITCHES,

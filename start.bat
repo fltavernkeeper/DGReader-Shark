@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title DGReader - 天穹读取验证
+title DGReader Shark - 鲨鱼版
 if not exist "node.exe" (
   echo [错误] 缺少 node.exe，请确认压缩包完整解压。
   pause

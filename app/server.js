@@ -1105,9 +1105,19 @@ if (require.main === module) {
             if (url === '/api/game/browse' && req.method === 'POST') {
                 withJson(req, res, (m) => {
                     const mode = m.mode === 'file' ? 'file' : 'folder';
-                    execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', BROWSE_SCRIPT, '-Mode', mode], { windowsHide: true }, (err, stdout) => {
+                    execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', BROWSE_SCRIPT, '-Mode', mode], { windowsHide: true, encoding: 'utf8' }, (err, stdout) => {
                         if (err) { jsonRes(res, 500, { ok: false, error: err.message }); return; }
-                        jsonRes(res, 200, { ok: true, path: String(stdout || '').trim() });
+                        const raw = String(stdout || '').trim();
+                        let picked = '';
+                        if (raw) {
+                            if (/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) {
+                                try { picked = Buffer.from(raw, 'base64').toString('utf8'); } catch (e) { picked = ''; }
+                            } else {
+                                // 兼容旧版 browse.ps1 直接输出的路径
+                                picked = raw;
+                            }
+                        }
+                        jsonRes(res, 200, { ok: true, path: picked });
                     });
                 });
                 return;
