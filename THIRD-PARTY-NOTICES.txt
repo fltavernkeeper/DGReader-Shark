@@ -1,0 +1,27 @@
+DGReader 鲨鱼版 - Third-Party Notices
+=====================================
+
+1. Node.js
+----------
+The bundled node.exe is Node.js v24.19.0.
+
+Copyright Node.js contributors. All rights reserved.
+
+Node.js is licensed under the MIT License. The full Node.js license
+text, including the licenses of its bundled dependencies, is in:
+  licenses/node-LICENSE.txt
+
+Node.js project: https://nodejs.org/
+
+2. Windows OCR
+--------------
+OCR uses the OCR engine included with Microsoft Windows
+(Windows.Media.Ocr). It is a system component and is not
+redistributed with this archive.
+
+3. Other components
+-------------------
+This archive does not include DGPro binaries, DGPro assets, game
+assets, fonts, or other third-party game files.
+
+DGReader itself is licensed under GPL-3.0-only; see LICENSE.txt.

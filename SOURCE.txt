@@ -1,0 +1,24 @@
+DGReader 鲨鱼版 / DGReader Shark Edition
+Corresponding source for GPL-3.0-only
+============================================================
+
+This archive contains the corresponding source code for the
+GPL-3.0-only parts of DGReader:
+
+  app/*.js          Node.js application source
+  app/*.ps1         PowerShell helpers (OCR / BLE)
+  app/DGRMHook.js   RPG Maker MV/MZ plugin source
+  web/*.html        Web UI source
+  web/*.js          Web UI source
+  start.bat
+
+There is no build step: these files are the source that runs.
+The bundled node.exe is a separate third-party runtime (Node.js
+v24.19.0, MIT); see THIRD-PARTY-NOTICES.txt and
+licenses/node-LICENSE.txt.
+
+No DGPro binaries, assets, extracted strings, or plugin source are
+included in this archive.
+
+License: GPL-3.0-only.  Full text: LICENSE.txt.
+Copyright (C) 2026 FL.

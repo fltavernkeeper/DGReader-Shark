@@ -1,0 +1,299 @@
+{
+  "activeProject": "celesphonia",
+  "projects": [
+    {
+      "id": "celesphonia",
+      "name": "默认游戏名",
+      "gameDir": "",
+      "vars": {
+        "lust": 1021,
+        "lustMax": 1034,
+        "extasy": 1026,
+        "estrus": 1027,
+        "erosion": 1022,
+        "miasma": 1030,
+        "miasmaMax": 1037,
+        "domination": 212,
+        "clothDur": 741,
+        "clothDurMax": 742
+      },
+      "switches": {
+        "swimming": 267,
+        "poolOpen": 261,
+        "poolHasHazuki": 268,
+        "swimsuit": 883,
+        "competitionSwimsuit": 886,
+        "inBattle": 18
+      },
+      "activeScene": "default",
+      "scenes": [
+        {
+          "id": "default",
+          "name": "默认场景",
+          "rules": [
+            {
+              "id": "battle_climax",
+              "trigger": {
+                "source": "expression",
+                "value": "(/^(AttackEstrus|DamagePinchL3|GaspingL3)/.test(tickerId)) || /要去了|去了……|绝顶|高潮/.test(ticker)"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": true,
+                  "strength": 70,
+                  "wave": "const",
+                  "seconds": 3
+                },
+                "B": {
+                  "enabled": false
+                }
+              },
+              "cooldownMs": 8000,
+              "enabled": true
+            },
+            {
+              "id": "battle_act_l3",
+              "trigger": {
+                "source": "expression",
+                "value": "/L3/.test(tickerId) && /^(Nipple|NippleLick|BoobsKnead|clitoris|Kiss)/.test(tickerId)"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": false
+                },
+                "B": {
+                  "enabled": true,
+                  "strength": 55,
+                  "wave": "sine",
+                  "seconds": 2
+                }
+              },
+              "cooldownMs": 4000
+            },
+            {
+              "id": "battle_act_l1",
+              "trigger": {
+                "source": "expression",
+                "value": "/L1/.test(tickerId) && /^(Nipple|NippleLick|BoobsKnead|clitoris|Kiss)/.test(tickerId)"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": false
+                },
+                "B": {
+                  "enabled": true,
+                  "strength": 25,
+                  "wave": "sine",
+                  "seconds": 2
+                }
+              },
+              "cooldownMs": 3000
+            },
+            {
+              "id": "battle_resist",
+              "trigger": {
+                "source": "ticker",
+                "op": "regex",
+                "value": "不要|讨厌|放开我|やめて"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": true,
+                  "strength": 45,
+                  "wave": "sine",
+                  "seconds": 2
+                },
+                "B": {
+                  "enabled": false
+                }
+              },
+              "cooldownMs": 5000
+            },
+            {
+              "id": "battle_crisis",
+              "trigger": {
+                "source": "tickerId",
+                "op": "prefix",
+                "value": "Crisis"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": true,
+                  "strength": 60,
+                  "wave": "const",
+                  "seconds": 3
+                },
+                "B": {
+                  "enabled": false
+                }
+              },
+              "cooldownMs": 8000
+            },
+            {
+              "id": "battle_sys_trap",
+              "trigger": {
+                "source": "tickerId",
+                "op": "equals",
+                "value": "TrapActive"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": false
+                },
+                "B": {
+                  "enabled": true,
+                  "strength": 40,
+                  "wave": "pulse",
+                  "seconds": 1.5
+                }
+              },
+              "cooldownMs": 5000
+            },
+            {
+              "id": "battle_sys_boss",
+              "trigger": {
+                "source": "expression",
+                "value": "tickerId === 'EncountBoss' || tickerId === 'ScenceBoss'"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": true,
+                  "strength": 50,
+                  "wave": "sine",
+                  "seconds": 3
+                },
+                "B": {
+                  "enabled": false
+                }
+              },
+              "cooldownMs": 10000
+            },
+            {
+              "id": "dialog_swim",
+              "trigger": {
+                "source": "expression",
+                "value": "(mapId === 63 || mapId === 175 || swimming) && /泳|水着|泳装|游泳池|プール/.test(msg)"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": true,
+                  "strength": 35,
+                  "wave": "sine",
+                  "seconds": 3
+                },
+                "B": {
+                  "enabled": false
+                }
+              },
+              "cooldownMs": 4000
+            },
+            {
+              "id": "dialog_danger",
+              "trigger": {
+                "source": "msg",
+                "op": "regex",
+                "value": "危险|快逃|陷阱|逃げ"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": true,
+                  "strength": 65,
+                  "wave": "const",
+                  "seconds": 2
+                },
+                "B": {
+                  "enabled": false
+                }
+              },
+              "cooldownMs": 6000
+            },
+            {
+              "id": "dialog_pleasure",
+              "trigger": {
+                "source": "msg",
+                "op": "regex",
+                "value": "发情|敏感|快感|好舒服|有感觉|不行了"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": false
+                },
+                "B": {
+                  "enabled": true,
+                  "strength": 30,
+                  "wave": "sine",
+                  "seconds": 2
+                }
+              },
+              "cooldownMs": 3000
+            },
+            {
+              "id": "estrus_high",
+              "trigger": {
+                "source": "var",
+                "op": "gte",
+                "name": "estrus",
+                "value": 80
+              },
+              "outputs": {
+                "A": {
+                  "enabled": false
+                },
+                "B": {
+                  "enabled": true,
+                  "strength": 50,
+                  "wave": "tide",
+                  "seconds": 0
+                }
+              },
+              "cooldownMs": 2000
+            },
+            {
+              "id": "battlelog_damage",
+              "trigger": {
+                "source": "battlelog",
+                "op": "regex",
+                "value": "受到了|伤害|攻击|使用了"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": false
+                },
+                "B": {
+                  "enabled": true,
+                  "strength": 20,
+                  "wave": "sine",
+                  "seconds": 1.5
+                }
+              },
+              "cooldownMs": 2500
+            },
+            {
+              "id": "battlelog_restraint",
+              "trigger": {
+                "source": "battlelog",
+                "op": "regex",
+                "value": "拘束|触手|抓住|无法动弹|压住|缠住"
+              },
+              "outputs": {
+                "A": {
+                  "enabled": true,
+                  "strength": 55,
+                  "wave": "sine",
+                  "seconds": 2
+                },
+                "B": {
+                  "enabled": false
+                }
+              },
+              "cooldownMs": 4000
+            }
+          ],
+          "output": {
+            "mode": "device"
+          }
+        }
+      ]
+    }
+  ]
+}

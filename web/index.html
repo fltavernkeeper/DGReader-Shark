@@ -1,0 +1,1972 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DGReader 鲨鱼版</title>
+<style>
+  :root {
+    --bg:#0b0f14; --panel:#121821; --panel2:#0e141c; --line:#1f2a37;
+    --text:#e6edf3; --muted:#8b98a8; --accent:#4ade80; --warn:#fbbf24;
+    --pink:#f472b6; --blue:#60a5fa; --red:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;min-height:100vh}
+  header{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#111823,#0d131b);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;font-weight:600}
+  header .sub{color:var(--muted);font-size:12px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 8px #ef444488}
+  .dot.on{background:var(--accent);box-shadow:0 0 8px #4ade8088}
+  .dot.yellow{background:var(--warn);box-shadow:0 0 8px #fbbf2488}
+  .led{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .langsel{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .langsel select{width:auto;min-width:88px}
+  .projectbar{display:flex;align-items:center;gap:14px;padding:8px 20px;border-bottom:1px solid var(--line);background:#0b1017;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .projectbar select{min-width:180px}
+  .projectbar .note{padding:0;border:none;background:none}
+  .status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-left:auto}
+  nav{display:flex;gap:6px;padding:0 20px;border-bottom:1px solid var(--line);background:#0d131b}
+  nav button{background:none;border:none;color:var(--muted);padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent}
+  nav button.active{color:var(--text);border-bottom-color:var(--accent)}
+  main{display:none;max-width:1400px;margin:0 auto;padding:16px 20px 28px}
+  main.active{display:block}
+  .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .panel>.hd{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12px;color:var(--muted)}
+  .panel>.hd b{color:var(--text);font-size:13px}
+  .panel>.bd{padding:14px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#1b2432;color:var(--muted);border:1px solid var(--line)}
+  .badge.id{color:var(--blue);border-color:#1e3a5f;background:#102033}
+  .badge.kind{color:var(--pink);border-color:#4a1f38;background:#2a0f1f}
+  .text{font-size:17px;line-height:1.8;min-height:54px;white-space:pre-wrap;word-break:break-word}
+  .text.dim{color:var(--muted);font-size:14px}
+  .bline{padding:3px 0;border-bottom:1px dashed #18222e;font-size:15px}
+  .bline:last-child{border-bottom:none}
+  .icon{display:inline-block;width:24px;height:24px;background-image:url('/assets/system/IconSet.png');background-repeat:no-repeat;vertical-align:-6px;margin:0 1px;border-radius:3px}
+  .stamp{color:#5b6b7f;font-size:11px;margin-top:8px}
+  .raw{margin-top:10px;display:none;background:#0a0e13;border:1px solid var(--line);border-radius:6px;padding:8px;color:#9fb0c3;font:11px/1.6 "Cascadia Mono",Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+  .raw.show{display:block}
+  .log{height:300px;overflow:auto;font:12px/1.6 "Cascadia Mono",Consolas,monospace}
+  .log .row{display:flex;gap:8px;padding:3px 0;border-bottom:1px dashed #18222e}
+  .log .t{color:#5b6b7f;flex:0 0 62px}
+  .log .on{color:var(--accent)} .log .off{color:#94a3b8}
+  .log .rid{color:var(--warn)}
+  .channels{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .ch{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+  .ch .name{color:var(--muted);font-size:12px}.ch .val{font-size:28px;font-weight:700}
+  .ch .pulse{color:var(--muted);font-size:12px}
+  .hint{color:var(--muted);font-size:12px;padding:8px 14px;border-top:1px solid var(--line);background:var(--panel2)}
+  footer{color:#5b6b7f;font-size:12px;text-align:center;padding:0 20px 24px}
+  footer .ver{display:block;margin-top:6px;color:#7d8da3;font-size:11px}
+  code{background:#18222e;padding:1px 5px;border-radius:4px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  input,select,textarea{background:#0a0e13;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font:13px/1.4 "Cascadia Mono",Consolas,monospace}
+  textarea{width:100%;min-height:64px;resize:vertical}
+  button.btn{background:#1b2432;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px}
+  button.btn:hover{border-color:#33465c}
+  button.primary{background:#123a26;border-color:#1f6b45;color:#b7f7cf}
+  button.danger{background:#3a1414;border-color:#6b1f1f;color:#f7b7b7}
+  .rulelist{max-height:520px;overflow:auto}
+  .ruleitem{display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #18222e;font-size:12px}
+  .ruleitem .id{color:var(--warn);flex:0 0 150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ruleitem .w{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ruleitem .a{color:var(--muted);flex:0 0 210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ruleitem button{padding:2px 6px;font-size:11px}
+  .snippets{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .snippets button{font-size:11px;padding:3px 7px}
+  .ok{color:var(--accent)} .err{color:var(--red)}
+  .note{color:var(--muted);font-size:12px;line-height:1.9}
+  .panel2{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--panel2)}
+  .hd2{font-size:12px;color:var(--muted);margin-bottom:8px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>DGReader 鲨鱼版</h1>
+    <div class="sub">文字 → 规则 → 震动 · 把你的文字游戏变成震动游戏~</div>
+  </div>
+  <div class="status">
+    <label class="langsel">语言
+      <select id="uiLang">
+        <option value="zh">中文</option>
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+        <option value="other">其他语言…</option>
+      </select>
+    </label>
+    <span class="led"><i class="dot" id="gameLed"></i><span id="connText">游戏未连接</span></span>
+    <span class="led"><i class="dot" id="deviceLed"></i><span id="deviceText">设备未连接</span></span>
+    <span id="mapText"></span>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="read">读取</button>
+  <button data-tab="rules">规则</button>
+  <button data-tab="output">输出</button>
+  <button data-tab="device">设备</button>
+  <button data-tab="project">游戏 / 安装</button>
+  <button data-tab="ocr">OCR（附赠）</button>
+</nav>
+
+<div class="projectbar">
+  <label>游戏 <select id="projSelect"></select></label>
+  <label>场景 <select id="sceneSelect"></select></label>
+  <span id="projHint" class="note"></span>
+</div>
+
+<!-- ============================= 读取 ============================= -->
+<main id="view-read" class="active">
+  <div class="grid">
+    <div class="col">
+      <section class="panel">
+        <div class="hd"><b>对话框事件文本</b><span>Game_Message / Window_Message</span></div>
+        <div class="bd">
+          <div class="meta" id="msgMeta"></div>
+          <div class="text dim" id="msgText">等待对话……</div>
+          <pre class="raw" id="msgRaw"></pre>
+          <div class="stamp" id="msgTime"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="hd"><b>战斗左上角播报</b><span>TickerManager / TickerBTM</span></div>
+        <div class="bd">
+          <div class="meta" id="tickMeta"></div>
+          <div class="text dim" id="tickText">等待战斗播报……</div>
+          <pre class="raw" id="tickRaw"></pre>
+          <div class="stamp" id="tickTime"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="hd"><b>战斗日志（左上角）</b><span>Window_BattleLog / 敌人行动 / 伤害 / 状态</span></div>
+        <div class="bd">
+          <div class="text dim" id="blText">等待战斗日志……</div>
+          <div class="stamp" id="blTime"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="hd"><b>通道状态</b><span>规则打算输出什么</span></div>
+        <div class="bd">
+          <div class="channels">
+            <div class="ch"><div class="name">通道 A</div><div class="val" id="chA">0</div><div class="pulse" id="pulseA"></div></div>
+            <div class="ch"><div class="name">通道 B</div><div class="val" id="chB">0</div><div class="pulse" id="pulseB"></div></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <label class="row" style="font-size:12px;color:var(--muted)">
+              <input type="checkbox" id="rawToggle" /> 显示原始转义文本
+            </label>
+          </div>
+        </div>
+        <div class="hint">规则可输出到界面，也可直接驱动负鼠 BLE（设备标签）。</div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel">
+        <div class="hd"><b>规则触发</b><span id="ruleCount"></span></div>
+        <div class="bd"><div class="log" id="log"></div></div>
+      </section>
+      <section class="panel">
+        <div class="hd"><b>提示</b></div>
+        <div class="bd note">
+          图标与颜色来自游戏 <code>IconSet.png</code> / <code>Window.png</code>。<br>
+          规则可匹配 <code>tickerColors</code> / <code>tickerIcons</code> / <code>msgColors</code> / <code>msgIcons</code> / 文本 / 语义 ID。<br>
+          点上方「规则」标签可增删改，保存后立即生效。
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- ============================= 规则 ============================= -->
+<main id="view-rules">
+  <div class="grid">
+    <section class="panel">
+      <div class="hd"><b>规则列表</b><span id="ruleTotal"></span></div>
+      <div class="bd">
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" id="btnNew">新增规则</button>
+          <button class="btn" id="btnReload">重新载入</button>
+          <span id="saveStatus" class="note"></span>
+        </div>
+        <div class="rulelist" id="ruleList"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd"><b>编辑规则</b><span id="editingHint">新建</span></div>
+      <div class="bd">
+        <div class="row">
+          <label class="f" style="flex:1">规则名（可留空）<input id="rId" placeholder="例如 泳池-游泳" /></label>
+          <label class="f" style="width:120px">冷却 ms<input id="rCooldown" type="number" placeholder="2000" /></label>
+        </div>
+
+        <div class="panel2" style="margin-top:12px">
+          <div class="hd2">触发条件</div>
+          <div class="row">
+            <label class="f" style="width:150px">来源
+              <select id="rSource">
+                <option value="msg">对话框文本</option>
+                <option value="ticker">战斗播报</option>
+                <option value="battlelog">战斗日志</option>
+                <option value="ocr">OCR 文本</option>
+                <option value="tickerId">播报 ID</option>
+                <option value="var">变量数值</option>
+                <option value="switch">开关状态</option>
+                <option value="expression">高级表达式</option>
+              </select>
+            </label>
+            <label class="f" style="width:170px" id="opWrap">正则
+              <select id="rOp"></select>
+            </label>
+            <label class="f" style="flex:1" id="valueWrap">值 / 阈值
+              <input id="rValue" placeholder="关键词、正则、图标编号或数值" />
+            </label>
+            <label class="f" style="width:160px;display:none" id="varWrap">变量
+              <select id="rVar"></select>
+            </label>
+            <label class="f" style="width:160px;display:none" id="switchWrap">开关
+              <select id="rSwitch"></select>
+            </label>
+          </div>
+          <label class="f" style="margin-top:8px;display:none" id="exprWrap">表达式
+            <textarea id="rExpr" placeholder="例如：swimming && estrus >= 30"></textarea>
+          </label>
+        </div>
+
+        <div class="panel2" style="margin-top:12px">
+          <div class="hd2">输出（A/B 可同时启用）</div>
+          <div class="row">
+            <label class="row" style="width:100px"><input type="checkbox" id="rAOn" checked /> 通道 A</label>
+            <label class="f" style="width:130px">波形
+              <select id="rAWave">
+                <option value="const">持续</option>
+                <option value="sine">呼吸</option>
+                <option value="tide">潮汐</option>
+                <option value="heart">心跳</option>
+                <option value="pulse">脉冲</option>
+                <option value="rampUp">渐强</option>
+                <option value="rampDown">渐弱</option>
+                <option value="saw">锯齿</option>
+                <option value="random">随机</option>
+                <option value="massage">按摩</option>
+              <option value="burst">连击</option>
+              <option value="wave">波浪</option>
+              <option value="knock">敲击</option>
+              <option value="crawl">蠕动</option>
+              </select>
+            </label>
+            <label class="f" style="width:100px">强度 0-200<input id="rAStrength" type="number" min="0" max="200" value="40" /></label>
+            <label class="f" style="width:90px">秒数<input id="rASeconds" type="number" min="0" step="0.5" placeholder="3" /></label>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <label class="row" style="width:100px"><input type="checkbox" id="rBOn" /> 通道 B</label>
+            <label class="f" style="width:130px">波形
+              <select id="rBWave">
+                <option value="const">持续</option>
+                <option value="sine">呼吸</option>
+                <option value="tide">潮汐</option>
+                <option value="heart">心跳</option>
+                <option value="pulse">脉冲</option>
+                <option value="rampUp">渐强</option>
+                <option value="rampDown">渐弱</option>
+                <option value="saw">锯齿</option>
+                <option value="random">随机</option>
+                <option value="massage">按摩</option>
+              <option value="burst">连击</option>
+              <option value="wave">波浪</option>
+              <option value="knock">敲击</option>
+              <option value="crawl">蠕动</option>
+              </select>
+            </label>
+            <label class="f" style="width:100px">强度 0-200<input id="rBStrength" type="number" min="0" max="200" value="40" /></label>
+            <label class="f" style="width:90px">秒数<input id="rBSeconds" type="number" min="0" step="0.5" placeholder="3" /></label>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="btnSave">保存规则</button>
+          <button class="btn" id="btnCancel">清空表单</button>
+          <button class="btn danger" id="btnDelete" style="display:none">删除</button>
+        </div>
+        <div class="note" style="margin-top:10px">
+          条件示例：<br>
+          · 对话框文本 <b>包含</b> “游泳” → A 通道 35 / 呼吸 / 3 秒<br>
+          · 战斗播报 <b>正则</b> “今天天气怎么样|你吃了吗” → A 70 / 持续 / 3 秒<br>
+          · 变量 <b>≥</b> 80（选 estrus）→ B 50 / 潮汐 / 0 秒（持续到条件结束）<br><br>
+
+          <b>“和”与“或”怎么写：</b><br>
+          · <b>或</b>（任意一个满足就触发）：正则里用 <code>|</code>，
+            例如 <code>今天天气怎么样|你吃了吗</code> 表示出现“今天天气怎么样”<b>或</b>“你吃了吗”都触发；
+            高级表达式里也可以用 <code>||</code>。<br>
+            · <code>||</code> 可以同时引用不同来源：左边是对话框文本，右边是战斗播报 ID，任意一个成立就触发。<br>
+          · <b>和</b>（必须同时满足）：请把来源切到“高级表达式”，用 <code>&amp;&amp;</code>，
+            例如 <code>mapId === 63 &amp;&amp; swimming</code>、
+            <code>estrus &gt;= 80 &amp;&amp; lust &gt;= 50</code>。<br>
+          · 简单条件一次只能判断一个来源；要“和”就必须用高级表达式。<br>
+          · “包含”是纯文本包含；“正则”里的 <code>|</code> 才是“或”。
+            要匹配真正的竖线字符，写成 <code>\|</code>。<br><br>
+
+          <b>文字检测来源：</b><br>
+          · 对话框文本：角色对话内容（含角色名）<br>
+          · 战斗播报：战斗左上角 Ticker 文本<br>
+          · 战斗日志：Window_BattleLog（敌人行动/伤害/状态）<br>
+          · 播报 ID：语义 ID（如 TrapActive），比关键词更稳定<br>
+          · OCR 文本：仅 OCR 模式可用，只支持“包含 / 正则”<br><br>
+          注：使用浏览器一键翻译页面后，页面示例中的部分符号（如 <code>|</code>、<code>\</code>、<code>&amp;&amp;</code>）
+          可能丢失或被改写；刷新页面即可恢复。
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ============================= 输出 ============================= -->
+<main id="view-output">
+  <div class="grid">
+    <section class="panel">
+      <div class="hd"><b>输出目标</b><span>规则触发后发给谁</span></div>
+      <div class="bd">
+        <div class="row" style="gap:18px">
+          <label class="row"><input type="radio" name="outMode" value="display" /> 仅界面 / 日志</label>
+          <label class="row"><input type="radio" name="outMode" value="device" /> 直接驱动负鼠（BLE）</label>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="btnSaveOutput">保存输出设置</button>
+          <span id="outputStatus" class="note"></span>
+        </div>
+        <div class="note" style="margin-top:14px">
+          设备未连接时，规则只记录日志，不会报错。
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd"><b>规则输出字段</b></div>
+      <div class="bd note">
+        每条规则可独立设置 A / B：<br>
+        · 是否启用<br>
+        · 波形（持续 / 呼吸 / 潮汐 / 心跳 / 脉冲 / 渐强 / 渐弱 / 锯齿 / 随机 / 按摩）<br>
+        · 强度 0–200<br>
+        · 秒数（0 表示持续到条件不成立）<br><br>
+        A/B 的波形互不影响，设备层会按 25ms 粒度分别生成 B0 数据。<br>
+        强度最终仍受设备自身限制。
+      </div>
+    </section>
+  </div>
+</main>
+
+<main id="view-project">
+  <div class="grid">
+    <section class="panel">
+      <div class="hd"><b>游戏</b><span>每个游戏一个项目</span></div>
+      <div class="bd">
+        <div class="row">
+          <label class="f" style="flex:1">游戏名<input id="pName" placeholder="建议填写游戏名" /></label>
+          <button class="btn" id="btnProjRename">重命名</button>
+          <button class="btn danger" id="btnProjDelete">删除</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="btnProjNew">新建游戏</button>
+          <span id="projStatus" class="note"></span>
+        </div>
+        <div class="note" style="margin-top:10px">
+          新建游戏会弹窗选择游戏目录；不同游戏之间的规则/变量互相独立。
+          游戏名建议直接填写游戏本名，方便识别。
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd"><b>场景</b><span>同一游戏的不同预设</span></div>
+      <div class="bd">
+        <div class="row">
+          <label class="f" style="flex:1">场景名<input id="sName" /></label>
+          <button class="btn" id="btnSceneRename">重命名</button>
+          <button class="btn danger" id="btnSceneDelete">删除</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="btnSceneNew">新建场景</button>
+        </div>
+        <div class="note" style="margin-top:10px">
+          场景用于同一游戏的不同玩法/章节；切换场景会切换整套规则。
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd"><b>游戏插件</b><span>安装 / 移除 DGRMHook</span></div>
+      <div class="bd">
+        <div class="row">
+          <label class="f" style="flex:1">游戏目录<input id="gDir" placeholder="点击“浏览…”选择游戏本体目录（包含 www 或 js）" /></label>
+          <button class="btn" id="btnGBrowse">浏览…</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="btnGInstall">安装插件</button>
+          <button class="btn danger" id="btnGRemove">移除插件</button>
+          <button class="btn" id="btnGStatus">检查状态</button>
+        </div>
+        <div class="note" style="margin-top:10px">
+          插件作用：从游戏运行时读取已经解码好的文字，避免直接解析数据文件时
+          因 UTF-8 / GBK / Shift-JIS 等编码差异而读不出来。<br>
+          安装/移除只改插件注册项，不会转码或改写原文件编码，并会自动备份。
+        </div>
+        <div class="note" id="gStatus" style="margin-top:10px">未检查</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd"><b>预设 / 规则导入导出</b><span>场景规则或整个项目</span></div>
+      <div class="bd">
+        <div class="row">
+          <button class="btn primary" id="btnExportScene">导出当前场景</button>
+          <button class="btn" id="btnImportScene">导入到当前场景</button>
+          <input type="file" id="fileScene" accept=".json" style="display:none" />
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="btnExportProject">导出项目</button>
+          <button class="btn" id="btnImportProject">导入项目</button>
+          <input type="file" id="fileProject" accept=".json" style="display:none" />
+        </div>
+        <div class="note" style="margin-top:10px">
+          导出的场景文件就是“预设”，可以导入到其它游戏/场景；
+          导入项目会创建一个新项目（不会覆盖当前项目）。
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<main id="view-ocr">
+  <div class="grid">
+    <section class="panel">
+      <div class="hd"><b>OCR（附赠功能）</b><span>给 RPG Maker MV/MZ 之外的文字类游戏</span></div>
+      <div class="bd">
+        <div class="note" style="margin-bottom:10px">
+          这是附赠功能，用于 RPG Maker MV/MZ 之外、无法安装插件的文字类游戏
+          （Unity、独立 AVG 等）。原理是调用 Windows 自带 OCR 识别屏幕上的文字，
+          不是 hook，所以有延迟，也会受字体、背景、文字速度影响。
+        </div>
+        <div class="note" style="color:var(--warn);margin-bottom:10px">
+          使用前请先安装系统 OCR 语言包：<br>
+          Windows 设置 → 时间和语言 → 语言 → 添加中文/日文/英文 →
+          安装“光学字符识别”。<br>
+          识别语言列表只显示系统已安装的 OCR 语言。
+        </div>
+
+        <div class="row">
+          <button class="btn primary" id="btnOcrStart">启动 OCR 服务</button>
+          <button class="btn" id="btnOcrStop">停止服务</button>
+          <span id="ocrStatus" class="note">未启动</span>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <label class="f" style="flex:1">识别语言
+            <select id="ocrLang"></select>
+          </label>
+          <button class="btn" id="btnOcrLang">刷新语言</button>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="btnOcrShot" title="点击后在截图上按住左键拖动框选">截屏后拖动左键框选</button>
+          <span id="ocrRoiText" class="note">点击按钮后，在截图上按住左键拖动，框住对话框文字区域</span>
+        </div>
+
+        <div id="ocrShotWrap" style="display:none;position:relative;margin-top:10px;max-height:420px;overflow:auto;border:1px solid var(--line)">
+          <img id="ocrShot" style="display:block;max-width:100%;user-select:none" />
+          <canvas id="ocrCanvas" style="position:absolute;left:0;top:0;cursor:crosshair"></canvas>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <label class="f" style="width:150px">间隔 ms
+            <input id="ocrInterval" type="number" min="500" value="2000" />
+          </label>
+          <button class="btn" id="btnOcrTest">测试识别</button>
+          <button class="btn primary" id="btnOcrMonitor">开始监视</button>
+          <button class="btn danger" id="btnOcrMonitorStop">停止监视</button>
+        </div>
+
+        <div class="note" id="ocrResult" style="margin-top:10px">识别结果会显示在这里。</div>
+
+        <div class="note" style="margin-top:10px">
+          识别出的文字会作为【规则】里“OCR 文本”来源的输入；文字稳定约 2 帧后才会触发规则。
+        </div>
+
+        <div class="note" style="margin-top:12px;color:var(--warn)">
+          OCR 有 1–3 秒延迟，快速滚动/逐字显示会漏读；请把游戏文字显示速度调快、自动翻页速度调慢。<br>
+          只支持关键词/正则规则，不支持变量、图标、颜色；需要游戏保持前台可见。
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<main id="view-device">
+  <div class="grid">
+    <section class="panel">
+      <div class="hd"><b>负鼠 BLE</b><span>官方协议 180C / 150A · B3 强度 + B0 波形</span></div>
+      <div class="bd">
+        <div class="row">
+          <label class="f" style="flex:1">蓝牙地址<input id="devAddress" placeholder="扫描后自动填入，或手动输入 12 位地址" /></label>
+          <button class="btn primary" id="btnDevConnect">连接</button>
+          <button class="btn" id="btnDevDisconnect">断开</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnDevScan">扫描附近负鼠</button>
+          <select id="devFound" style="flex:1">
+            <option value="">点击“扫描附近负鼠”查找设备</option>
+          </select>
+          <button class="btn" id="btnDevUse">使用选中</button>
+        </div>
+        <div class="note" style="margin-top:6px">
+          首次使用：Windows 设置 → 蓝牙和其他设备 → 添加设备 → 蓝牙 → 显示所有设备 → 选择负鼠设备名（数字+英文）。<br />
+          配对完成后回到这里，点“扫描附近负鼠” → 使用选中 → 连接。地址会自动记住，以后可直接连接。<br />
+          扫描约 6–30 秒，请让负鼠开机并靠近电脑。
+        </div>
+        <div class="note" id="devStatus" style="margin-top:10px">未连接</div>
+
+        <div class="row" style="margin-top:14px">
+          <label class="f" style="flex:1">通道 A 强度
+            <input type="range" id="devA" min="0" max="200" value="50" />
+          </label>
+          <span id="devAVal" style="width:44px;text-align:right">50</span>
+          <label class="f" style="width:130px">A 波形
+            <select id="devWaveA">
+              <option value="const">持续</option>
+              <option value="sine">呼吸</option>
+              <option value="tide">潮汐</option>
+              <option value="heart">心跳</option>
+              <option value="pulse">脉冲</option>
+              <option value="rampUp">渐强</option>
+              <option value="rampDown">渐弱</option>
+              <option value="saw">锯齿</option>
+              <option value="random">随机</option>
+              <option value="massage">按摩</option>
+              <option value="burst">连击</option>
+              <option value="wave">波浪</option>
+              <option value="knock">敲击</option>
+              <option value="crawl">蠕动</option>
+            </select>
+          </label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="f" style="flex:1">通道 B 强度
+            <input type="range" id="devB" min="0" max="200" value="50" />
+          </label>
+          <span id="devBVal" style="width:44px;text-align:right">50</span>
+          <label class="f" style="width:130px">B 波形
+            <select id="devWaveB">
+              <option value="const">持续</option>
+              <option value="sine">呼吸</option>
+              <option value="tide">潮汐</option>
+              <option value="heart">心跳</option>
+              <option value="pulse">脉冲</option>
+              <option value="rampUp">渐强</option>
+              <option value="rampDown">渐弱</option>
+              <option value="saw">锯齿</option>
+              <option value="random">随机</option>
+              <option value="massage">按摩</option>
+              <option value="burst">连击</option>
+              <option value="wave">波浪</option>
+              <option value="knock">敲击</option>
+              <option value="crawl">蠕动</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="btnDevTest">测试 3 秒</button>
+          <button class="btn danger" id="btnDevStop">停止</button>
+        </div>
+
+        <div class="panel2" style="margin-top:14px">
+          <div class="hd2">波形库（.pulse 导入/导出）</div>
+          <div class="row">
+            <input type="file" id="waveFile" accept=".pulse,.json" />
+            <button class="btn" id="btnWaveImport">导入 .pulse</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <label class="f" style="flex:1">导出波形
+              <select id="waveExportSelect"></select>
+            </label>
+            <button class="btn" id="btnWaveExport">导出</button>
+            <button class="btn danger" id="btnWaveDelete">删除自定义</button>
+          </div>
+          <div class="note" id="waveStatus" style="margin-top:6px">
+            支持 Dungeonlab+pulse 文本格式，以及 JSON。
+          </div>
+        </div>
+
+        <div class="note" style="margin-top:12px">
+          连接可能要几秒；返回 <code>Unreachable</code> 通常是设备在睡眠、距离远或已被其它程序占用。<br>
+          强度 0–200，波形 0–100；断开或停止会自动归零。
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="hd"><b>说明</b></div>
+      <div class="bd note">
+        负鼠是独立 BLE 设备，官方协议不需要郊狼。<br>
+        在【输出】选择“直接驱动负鼠”后，规则就会直接控制设备。
+      </div>
+    </section>
+  </div>
+</main>
+
+<div id="transNotice" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80;align-items:center;justify-content:center">
+  <div class="panel" style="max-width:560px;margin:20px">
+    <div class="hd"><b>其他语言 / Other languages</b></div>
+    <div class="bd note" id="transNoticeText"></div>
+    <div class="bd"><button class="btn primary" id="btnTransClose">知道了</button></div>
+  </div>
+</div>
+
+<footer><span class="ver">v1.02 By FL</span></footer>
+
+<script src="i18n.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { vars: {}, lastMeta: null, msgRaw: '', tickRaw: '', battlelogRaw: '', blLines: [], actors: [], party: [], ruleTotal: 0, device: null };
+  var profile = null;
+  var editingId = null;
+  var output = { mode: 'display', pipe: '', template: '' };
+
+  var DEFAULT_PALETTE = [
+    '#ffffff','#3b82f6','#ef4444','#22c55e','#06b6d4','#a855f7','#eab308','#9ca3af',
+    '#4b5563','#1d4ed8','#b91c1c','#15803d','#0e7490','#7e22ce','#a16207','#000000',
+    '#e5e7eb','#93c5fd','#fca5a5','#86efac','#67e8f9','#d8b4fe','#fde047','#d1d5db',
+    '#9ca3af','#60a5fa','#f87171','#4ade80','#22d3ee','#c084fc','#facc15','#6b7280'
+  ];
+  var palette = DEFAULT_PALETTE.slice();
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function now() { return new Date().toLocaleTimeString('zh-CN', { hour12: false }); }
+  function badge(text, cls) { return '<span class="badge ' + (cls || '') + '">' + esc(text) + '</span>'; }
+  function showTransNotice() {
+    var provider = DGRMI18n.providerName();
+    $('transNoticeText').innerHTML =
+      '当前界面没有内置该语言。<br><br>' +
+      '请使用浏览器自带翻译：<br>' +
+      '· Chrome：右键页面 →“翻译成…”<br>' +
+      '· Edge：地址栏右侧的翻译图标<br><br>' +
+      '使用的在线翻译：<b>' + provider + '</b><br>' +
+      '页面文字会发送给该翻译服务；游戏文本、日志、代码、路径不会参与翻译。';
+    $('transNotice').style.display = 'flex';
+  }
+
+  function setConn(on) {
+    $('gameLed').className = 'dot' + (on ? ' on' : '');
+    $('connText').textContent = on ? t('游戏已连接') : t('游戏未连接');
+  }
+  function setDevice(d) {
+    const on = !!(d && d.connected);
+    const running = !!(d && d.running);
+    $('deviceLed').className = 'dot' + (on ? ' on' : (running ? ' yellow' : ''));
+    $('deviceText').textContent = on ? (t('设备已连接') + (d.name ? ' · ' + d.name : '')) : (running ? t('设备服务已启动') : t('设备未连接'));
+  }
+  function setMap(id, name) {
+    $('mapText').textContent = id ? ('地图 ' + id + (name ? ' · ' + name : '')) : '';
+  }
+
+  // ---------------- 颜色表：从 Window.png 采样 ----------------
+  (function loadPalette() {
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        var g = c.getContext('2d');
+        g.drawImage(img, 0, 0);
+        for (var n = 0; n < 32; n++) {
+          var px = 96 + (n % 8) * 12 + 6;
+          var py = 144 + Math.floor(n / 8) * 12 + 6;
+          var d = g.getImageData(px, py, 1, 1).data;
+          if (d[3] > 0) { palette[n] = 'rgb(' + d[0] + ',' + d[1] + ',' + d[2] + ')'; }
+        }
+        renderMessage(); renderTicker();
+      } catch (e) { /* 用默认调色板 */ }
+    };
+    img.src = '/assets/system/Window.png';
+  })();
+
+  // ---------------- 富文本渲染：文本 + 图标 + 颜色 + 变量 ----------------
+  function iconSpan(n, scale) {
+    scale = scale || 0.75;
+    var s = document.createElement('span');
+    s.className = 'icon';
+    s.title = '图标 ' + n;
+    s.style.width = (32 * scale) + 'px';
+    s.style.height = (32 * scale) + 'px';
+    s.style.backgroundSize = (512 * scale) + 'px auto';
+    s.style.backgroundPosition = '-' + (n % 16) * 32 * scale + 'px -' + Math.floor(n / 16) * 32 * scale + 'px';
+    return s;
+  }
+
+  function renderRich(el, raw) {
+    el.innerHTML = '';
+    if (!raw) { return; }
+    var frag = document.createDocumentFragment();
+    var buf = '';
+    var color = null;
+
+    function flush() {
+      if (!buf) { return; }
+      var span = document.createElement('span');
+      span.textContent = buf;
+      if (color !== null && palette[color]) { span.style.color = palette[color]; }
+      frag.appendChild(span);
+      buf = '';
+    }
+
+    var i = 0;
+    while (i < raw.length) {
+      var ch = raw[i];
+      if (ch === '\\') {
+        var rest = raw.slice(i);
+        var m = /^\\([A-Za-z])\[(\d+)\]/.exec(rest);
+        if (m) {
+          var cmd = m[1].toUpperCase(), n = parseInt(m[2], 10);
+          if (cmd === 'C') { flush(); color = n; i += m[0].length; continue; }
+          if (cmd === 'I') { flush(); frag.appendChild(iconSpan(n)); i += m[0].length; continue; }
+          if (cmd === 'V') { flush(); buf += String(state.vars[n] !== undefined ? state.vars[n] : 0); i += m[0].length; continue; }
+          if (cmd === 'N') { flush(); buf += (state.actors[n] || ('角色' + n)); i += m[0].length; continue; }
+          if (cmd === 'P') {
+            flush();
+            var member = state.party[n - 1];
+            buf += ((member && member.name) || ('队员' + n));
+            i += m[0].length;
+            continue;
+          }
+        }
+        var one = /^\\[{}<>!|.^$]/.exec(rest);
+        if (one) { i += one[0].length; continue; }
+        var two = /^\\([A-Za-z])/.exec(rest);
+        if (two) { i += two[0].length; continue; }
+        buf += ch; i++; continue;
+      }
+      buf += ch; i++;
+    }
+    flush();
+    el.appendChild(frag);
+  }
+
+  function rawVisible() { return $('rawToggle').checked; }
+
+  function renderMessage() {
+    var el = $('msgText');
+    if (!state.msgRaw) { return; }
+    if (rawVisible()) { $('msgRaw').classList.add('show'); $('msgRaw').textContent = state.msgRaw; el.textContent = ''; }
+    else { $('msgRaw').classList.remove('show'); renderRich(el, state.msgRaw); }
+  }
+  function renderTicker() {
+    var el = $('tickText');
+    if (!state.tickRaw) { return; }
+    if (rawVisible()) { $('tickRaw').classList.add('show'); $('tickRaw').textContent = state.tickRaw; el.textContent = ''; }
+    else { $('tickRaw').classList.remove('show'); renderRich(el, state.tickRaw); }
+  }
+
+  function showMessage(ev) {
+    var meta = [];
+    if (ev.eventName) { meta.push(badge('事件 ' + ev.eventName)); }
+    if (ev.eventId) { meta.push(badge('#' + ev.eventId)); }
+    if (ev.position !== undefined) { meta.push(badge(['上', '中', '下'][ev.position] || ('位置' + ev.position))); }
+    if (ev.speaker) { meta.push(badge('说话人 ' + ev.speaker)); }
+    if (ev.choices && ev.choices.length) { meta.push(badge('选项 ' + ev.choices.join(' / '))); }
+    $('msgMeta').innerHTML = meta.join('');
+    state.msgRaw = ev.text || '';
+    $('msgText').className = 'text';
+    renderMessage();
+    $('msgTime').textContent = now() + (ev.phase ? ' · ' + ev.phase : '');
+  }
+
+  function clearMessage() {
+    state.msgRaw = '';
+    $('msgMeta').innerHTML = '';
+    $('msgText').className = 'text dim';
+    $('msgText').textContent = '（对话框已关闭）';
+    $('msgRaw').classList.remove('show');
+    $('msgTime').textContent = now();
+  }
+
+  function showTicker(ev) {
+    var meta = [];
+    var m = state.lastMeta;
+    if (m) {
+      if (m.kind) { meta.push(badge(m.kind, 'kind')); }
+      if (m.id) { meta.push(badge(m.id, 'id')); }
+      if (m.pattern) { meta.push(badge(m.pattern)); }
+      if (m.actorId) { meta.push(badge('演员 ' + m.actorId)); }
+    }
+    $('tickMeta').innerHTML = meta.join('');
+    state.tickRaw = ev.text || '';
+    $('tickText').className = 'text';
+    renderTicker();
+    $('tickTime').textContent = now();
+  }
+
+  // 战斗日志（Window_BattleLog）：保留最近 8 行
+  function renderBattlelog() {
+    var el = $('blText');
+    if (!state.blLines.length) { return; }
+    el.innerHTML = '';
+    el.className = 'text';
+    state.blLines.forEach(function (line) {
+      var d = document.createElement('div');
+      d.className = 'bline';
+      if (rawVisible()) { d.textContent = line; }
+      else { renderRich(d, line); }
+      el.appendChild(d);
+    });
+    $('blTime').textContent = now();
+  }
+
+  function showBattlelog(ev) {
+    var text = ev.text || '';
+    if (!text.trim()) { return; }
+    if (state.blLines[state.blLines.length - 1] === text) { return; }
+    state.blLines.push(text);
+    while (state.blLines.length > 8) { state.blLines.shift(); }
+    state.battlelogRaw = text;
+    renderBattlelog();
+  }
+
+  // ---------------- 规则触发日志 ----------------
+  function addLog(a) {
+    state.ruleTotal++;
+    $('ruleCount').textContent = state.ruleTotal + ' 次';
+    if (a.type === 'log') {
+      var r0 = document.createElement('div');
+      r0.className = 'row';
+      r0.innerHTML = '<span class="t">' + now() + '</span><span class="off">' + esc(a.text) + '</span>';
+      $('log').appendChild(r0);
+      $('log').scrollTop = $('log').scrollHeight;
+      return;
+    }
+    var row = document.createElement('div');
+    row.className = 'row';
+    var ch = a.action && a.action.channel ? String(a.action.channel).toUpperCase() : '-';
+    var detail = [];
+    if (a.action && a.action.strength !== undefined) { detail.push('强度 ' + a.action.strength); }
+    if (a.action && a.action.pulse) { detail.push('波形 ' + a.action.pulse); }
+    if (a.action && a.action.seconds) { detail.push(a.action.seconds + 's'); }
+    if (a.action && a.action.label) { detail.push(a.action.label); }
+    if (a.sent) { detail.push('→ ' + a.sent); }
+    row.innerHTML =
+      '<span class="t">' + now() + '</span>' +
+      '<span class="' + (a.edge === 'ON' ? 'on' : 'off') + '">' + a.edge + '</span>' +
+      '<span class="rid">' + esc(a.rule) + '</span>' +
+      '<span>' + esc(ch + ' · ' + detail.join('  ')) + '</span>';
+    var log = $('log');
+    log.appendChild(row);
+    while (log.children.length > 300) { log.removeChild(log.firstChild); }
+    log.scrollTop = log.scrollHeight;
+
+    if (a.action && a.action.channel) {
+      var key = String(a.action.channel).toUpperCase();
+      var strength = a.edge === 'ON' ? (a.action.strength || 0) : 0;
+      if (key === 'A') { $('chA').textContent = strength; $('pulseA').textContent = a.edge === 'ON' ? (a.action.pulse || '') : ''; }
+      if (key === 'B') { $('chB').textContent = strength; $('pulseB').textContent = a.edge === 'ON' ? (a.action.pulse || '') : ''; }
+    }
+  }
+
+// ---------------- 规则编辑器 ----------------
+  var SOURCE_NAMES = {
+    msg: '对话框', ticker: '战斗播报', battlelog: '战斗日志', ocr: 'OCR 文本',
+    tickerId: '播报 ID', var: '变量', switch: '开关', expression: '高级表达式'
+  };
+  var OP_NAMES = {
+    contains: '包含', regex: '正则（| = 或）', icon: '图标', color: '颜色',
+    equals: '等于', prefix: '前缀', gte: '≥', lte: '≤', eq: '=', neq: '≠',
+    on: '开启', off: '关闭'
+  };
+  var WAVE_NAMES = {
+    const: '持续', sine: '呼吸', tide: '潮汐', heart: '心跳', pulse: '脉冲',
+    rampUp: '渐强', rampDown: '渐弱', saw: '锯齿', random: '随机', massage: '按摩',
+    burst: '连击', wave: '波浪', knock: '敲击', crawl: '蠕动'
+  };
+
+  function loadProfile() {
+    return fetch('/api/profile').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '读取配置失败'); }
+      profile = d.profile;
+      output = d.output || output;
+      fillVarOptions();
+      renderRuleList();
+      fillOutput();
+      return profile;
+    });
+  }
+
+  function fillVarOptions() {
+    var vars = profile && profile.vars ? profile.vars : {};
+    var sws = profile && profile.switches ? profile.switches : {};
+    $('rVar').innerHTML = Object.keys(vars).map(function (n) {
+      return '<option value="' + n + '">' + n + ' (#' + vars[n] + ')</option>';
+    }).join('') || '<option value="">（无变量）</option>';
+    $('rSwitch').innerHTML = Object.keys(sws).map(function (n) {
+      return '<option value="' + n + '">' + n + ' (#' + sws[n] + ')</option>';
+    }).join('') || '<option value="">（无开关）</option>';
+  }
+
+  function describeTrigger(r) {
+    var t = r.trigger;
+    if (!t) { return '高级：' + (r.when || ''); }
+    if (t.source === 'expression') { return '高级：' + String(t.value || ''); }
+    if (t.source === 'var') {
+      return '变量 ' + t.name + ' ' + (OP_NAMES[t.op] || t.op) + ' ' + t.value;
+    }
+    if (t.source === 'switch') {
+      return '开关 ' + t.name + ' ' + (t.op === 'off' ? '关闭' : '开启');
+    }
+    return (SOURCE_NAMES[t.source] || t.source) + ' ' + (OP_NAMES[t.op] || t.op) + ' ' + (t.value !== undefined ? t.value : '');
+  }
+
+  function describeOutputs(r) {
+    var o = r.outputs || {};
+    var parts = [];
+    ['A', 'B'].forEach(function (ch) {
+      var c = o[ch];
+      if (!c || !c.enabled) { return; }
+      parts.push(ch + ' ' + c.strength + ' ' + (WAVE_NAMES[c.wave] || c.wave || '持续') + ' ' + (Number(c.seconds) > 0 ? c.seconds + 's' : '持续'));
+    });
+    return parts.length ? parts.join(' / ') : '无输出';
+  }
+
+  function renderRuleList() {
+    var list = $('ruleList');
+    list.innerHTML = '';
+    var rules = (profile && profile.rules) || [];
+    $('ruleTotal').textContent = rules.length + ' 条';
+    rules.forEach(function (r) {
+      var item = document.createElement('div');
+      item.className = 'ruleitem';
+      item.innerHTML =
+        '<span class="id" title="' + esc(r.id) + '">' + esc(r.id) + '</span>' +
+        '<span class="w" title="' + esc(describeTrigger(r)) + '">' + esc(describeTrigger(r)) + '</span>' +
+        '<span class="a" title="' + esc(describeOutputs(r)) + '">' + esc(describeOutputs(r)) + '</span>';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = r.enabled !== false;
+      cb.title = '启用 / 停用这条规则';
+      cb.onchange = function () { r.enabled = cb.checked; postProfile((cb.checked ? '已启用 ' : '已停用 ') + r.id); };
+      item.insertBefore(cb, item.firstChild);
+      var edit = document.createElement('button');
+      edit.className = 'btn'; edit.textContent = '编辑';
+      edit.onclick = function () { editRule(r.id); };
+      var test = document.createElement('button');
+      test.className = 'btn'; test.textContent = '测试';
+      test.onclick = function () { testRule(r.id); };
+      var del = document.createElement('button');
+      del.className = 'btn danger'; del.textContent = '删除';
+      del.onclick = function () { deleteRule(r.id); };
+      item.appendChild(edit); item.appendChild(test); item.appendChild(del);
+      list.appendChild(item);
+    });
+  }
+
+  function ruleById(id) {
+    return ((profile && profile.rules) || []).filter(function (r) { return r.id === id; })[0] || null;
+  }
+
+  function setOpOptions(source, keep) {
+    var ops;
+    if (source === 'msg' || source === 'ticker' || source === 'battlelog') {
+      ops = ['contains', 'regex', 'icon', 'color'];
+    } else if (source === 'ocr') {
+      ops = ['contains', 'regex'];
+    } else if (source === 'tickerId') {
+      ops = ['equals', 'prefix', 'contains'];
+    } else if (source === 'var') {
+      ops = ['gte', 'lte', 'eq', 'neq'];
+    } else if (source === 'switch') {
+      ops = ['on', 'off'];
+    } else {
+      ops = [];
+    }
+    var sel = $('rOp');
+    sel.innerHTML = ops.map(function (o) { return '<option value="' + o + '">' + OP_NAMES[o] + '</option>'; }).join('');
+    if (keep && ops.indexOf(keep) >= 0) { sel.value = keep; }
+  }
+
+  function updateRuleForm() {
+    var source = $('rSource').value;
+    setOpOptions(source, $('rOp').value);
+    var isExpr = source === 'expression';
+    var isVar = source === 'var';
+    var isSwitch = source === 'switch';
+    $('exprWrap').style.display = isExpr ? '' : 'none';
+    $('opWrap').style.display = isExpr ? 'none' : '';
+    $('valueWrap').style.display = (isExpr || isSwitch) ? 'none' : '';
+    $('varWrap').style.display = isVar ? '' : 'none';
+    $('switchWrap').style.display = isSwitch ? '' : 'none';
+    var ph = '关键词 / 正则';
+    if (source === 'tickerId') { ph = '例如 AttackEstrus 或 TrapActive'; }
+    if (source === 'var') { ph = '阈值，例如 80'; }
+    if (source === 'msg' || source === 'ticker' || source === 'battlelog') {
+      var op = $('rOp').value;
+      if (op === 'icon') { ph = '图标编号，例如 906'; }
+      if (op === 'color') { ph = '颜色编号 0-31，例如 4'; }
+    }
+    $('rValue').placeholder = ph;
+  }
+
+  function editRule(id) {
+    var r = ruleById(id);
+    if (!r) { return; }
+    editingId = id;
+    $('editingHint').textContent = '编辑：' + id;
+    $('rId').value = id;
+    $('rId').disabled = true;
+    $('rCooldown').value = r.cooldownMs || '';
+    var t = r.trigger || { source: 'expression', value: r.when || '' };
+    $('rSource').value = t.source || 'expression';
+    updateRuleForm();
+    if (t.source === 'expression') {
+      $('rExpr').value = t.value || '';
+    } else if (t.source === 'var') {
+      $('rVar').value = t.name || '';
+      $('rOp').value = t.op || 'gte';
+      $('rValue').value = t.value !== undefined ? t.value : '';
+    } else if (t.source === 'switch') {
+      $('rSwitch').value = t.name || '';
+      $('rOp').value = t.op || 'on';
+    } else {
+      $('rOp').value = t.op || 'contains';
+      $('rValue').value = t.value !== undefined ? t.value : '';
+    }
+    var o = r.outputs || {};
+    function setCh(ch, box, wave, strength, seconds) {
+      var c = o[ch] || {};
+      $(box).checked = !!c.enabled;
+      $(wave).value = c.wave || 'sine';
+      $(strength).value = c.strength !== undefined ? c.strength : 40;
+      $(seconds).value = c.seconds !== undefined ? c.seconds : 3;
+    }
+    setCh('A', 'rAOn', 'rAWave', 'rAStrength', 'rASeconds');
+    setCh('B', 'rBOn', 'rBWave', 'rBStrength', 'rBSeconds');
+    $('btnDelete').style.display = '';
+  }
+
+  function clearForm() {
+    editingId = null;
+    $('editingHint').textContent = '新建';
+    $('rId').value = '';
+    $('rId').disabled = false;
+    $('rCooldown').value = 2000;
+    $('rSource').value = 'msg';
+    updateRuleForm();
+    $('rOp').value = 'contains';
+    $('rValue').value = '';
+    $('rExpr').value = '';
+    $('rAOn').checked = true;
+    $('rAWave').value = 'sine';
+    $('rAStrength').value = 40;
+    $('rASeconds').value = 3;
+    $('rBOn').checked = false;
+    $('rBWave').value = 'sine';
+    $('rBStrength').value = 40;
+    $('rBSeconds').value = 3;
+    $('btnDelete').style.display = 'none';
+  }
+
+  function numOrUndef(v) {
+    if (v === '' || v === null || v === undefined) { return undefined; }
+    var n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
+  function collectRule() {
+    var id = $('rId').value.trim() || ('rule_' + Date.now().toString(36));
+    var source = $('rSource').value;
+    var trigger;
+    if (source === 'expression') {
+      var expr = $('rExpr').value.trim();
+      if (!expr) { throw new Error('高级表达式不能为空'); }
+      trigger = { source: 'expression', value: expr };
+    } else if (source === 'var') {
+      var vn = $('rVar').value;
+      if (!vn) { throw new Error('请选择变量'); }
+      var vv = numOrUndef($('rValue').value);
+      if (vv === undefined) { throw new Error('请填写阈值'); }
+      trigger = { source: 'var', op: $('rOp').value, name: vn, value: vv };
+    } else if (source === 'switch') {
+      var sn = $('rSwitch').value;
+      if (!sn) { throw new Error('请选择开关'); }
+      trigger = { source: 'switch', op: $('rOp').value, name: sn };
+    } else {
+      var val = $('rValue').value.trim();
+      if (!val) { throw new Error('请填写条件值'); }
+      if (source === 'tickerId') {
+        trigger = { source: 'tickerId', op: $('rOp').value, value: val };
+      } else {
+        trigger = { source: source, op: $('rOp').value, value: val };
+      }
+    }
+
+    function readCh(ch, box, wave, strength, seconds) {
+      var enabled = $(box).checked;
+      return {
+        enabled: enabled,
+        wave: $(wave).value,
+        strength: numOrUndef($(strength).value) || 0,
+        seconds: numOrUndef($(seconds).value) || 0
+      };
+    }
+    var outputs = {
+      A: readCh('A', 'rAOn', 'rAWave', 'rAStrength', 'rASeconds'),
+      B: readCh('B', 'rBOn', 'rBWave', 'rBStrength', 'rBSeconds')
+    };
+    if (!outputs.A.enabled && !outputs.B.enabled) { throw new Error('至少启用一个输出通道'); }
+
+    return {
+      id: id,
+      trigger: trigger,
+      outputs: outputs,
+      cooldownMs: numOrUndef($('rCooldown').value) || 800
+    };
+  }
+
+  function saveRule() {
+    if (!profile) {
+      loadProfile().then(saveRule).catch(function (e) { setStatus($('saveStatus'), e.message, false); });
+      return;
+    }
+    try {
+      var rule = collectRule();
+      if (editingId) {
+        profile.rules = profile.rules.map(function (r) { return r.id === editingId ? rule : r; });
+      } else {
+        if (ruleById(rule.id)) { throw new Error('规则名已存在：' + rule.id); }
+        profile.rules.push(rule);
+      }
+      postProfile('已保存：' + rule.id);
+    } catch (e) {
+      setStatus($('saveStatus'), e.message, false);
+    }
+  }
+
+  function testRule(id) {
+    fetch('/api/rules/test', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: id, seconds: 3 })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '测试失败'); }
+      setStatus($('saveStatus'), '已测试 ' + id + '（3 秒）', true);
+    }).catch(function (e) { setStatus($('saveStatus'), e.message, false); });
+  }
+  function deleteRule(id) {
+    if (!confirm('删除规则 ' + id + '？')) { return; }
+    profile.rules = profile.rules.filter(function (r) { return r.id !== id; });
+    postProfile('已删除：' + id);
+  }
+
+  function postProfile(msg) {
+    fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(profile)
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '保存失败'); }
+      setStatus($('saveStatus'), msg, true);
+      return loadProfile();
+    }).catch(function (e) {
+      setStatus($('saveStatus'), e.message, false);
+    });
+  }
+
+  function setStatus(el, text, ok) {
+    el.textContent = text;
+    el.className = ok ? 'note ok' : 'note err';
+    setTimeout(function () { el.textContent = ''; }, 5000);
+  }
+
+  
+  // ---------------- 输出设置 ----------------
+  function fillOutput() {
+    var mode = (output && output.mode) || 'display';
+    var radios = document.getElementsByName('outMode');
+    for (var i = 0; i < radios.length; i++) { radios[i].checked = (radios[i].value === mode); }
+  }
+
+  function saveOutput() {
+    var mode = 'display';
+    var radios = document.getElementsByName('outMode');
+    for (var i = 0; i < radios.length; i++) { if (radios[i].checked) { mode = radios[i].value; } }
+    fetch('/api/output', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ mode: mode })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '保存失败'); }
+      output = d.output;
+      setStatus($('outputStatus'), '已保存', true);
+    }).catch(function (e) { setStatus($('outputStatus'), e.message, false); });
+  }
+
+  // ---------------- 负鼠 BLE ----------------
+  function renderDevice(d) {
+    state.device = d || {};
+    setDevice(d);
+    var s = d || {};
+    var text;
+    if (s.connected) {
+      text = '已连接：' + (s.name || '') + '  ' + (s.address || '');
+    } else if (s.running) {
+      text = 'BLE 服务已启动，等待连接';
+    } else {
+      text = '未连接';
+    }
+    if (s.error) { text += '  ·  ' + s.error; }
+    $('devStatus').textContent = text;
+    $('devStatus').className = s.connected ? 'note ok' : 'note';
+    if (s.channels) {
+      $('devA').value = s.channels.A.strength || 0;
+      $('devB').value = s.channels.B.strength || 0;
+      $('devWaveA').value = s.channels.A.wave || 'const';
+      $('devWaveB').value = s.channels.B.wave || 'const';
+      $('devAVal').textContent = $('devA').value;
+      $('devBVal').textContent = $('devB').value;
+    }
+    if (s.address) { $('devAddress').value = s.address; }
+  }
+
+  function loadDevice() {
+    fetch('/api/device').then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) { renderDevice(d.device); }
+    }).catch(function () { });
+  }
+
+  function devScan() {
+    $('devStatus').textContent = '正在扫描附近的负鼠…（约 6–30 秒）';
+    fetch('/api/device/scan', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '扫描失败'); }
+      var list = d.devices || [];
+      var sel = $('devFound');
+      sel.innerHTML = list.map(function (x) {
+        return '<option value="' + esc(x.address) + '">' + esc((x.name || '未命名设备') + ' · ' + x.address) + '</option>';
+      }).join('') || '<option value="">没有找到负鼠</option>';
+      if (list.length) {
+        $('devAddress').value = list[0].address;
+        $('devStatus').textContent = '找到 ' + list.length + ' 个设备，已填入第一个；可按“连接”';
+      } else {
+        $('devStatus').textContent = '没有找到负鼠：请确认设备已开机、靠近电脑，并在 Windows 蓝牙设置里配对过';
+      }
+    }).catch(function (e) {
+      $('devStatus').textContent = '扫描失败：' + e.message;
+    });
+  }
+
+  function devUseFound() {
+    var v = $('devFound').value;
+    if (!v) { $('devStatus').textContent = '请先扫描并选择一个设备'; return; }
+    $('devAddress').value = v;
+    $('devStatus').textContent = '已选择 ' + v + '，点击“连接”';
+  }
+
+  function devConnect() {
+    var address = $('devAddress').value.trim();
+    if (!address) { $('devStatus').textContent = '请先填蓝牙地址'; return; }
+    $('devStatus').textContent = '连接中…（请确认负鼠已开机、未被其它程序占用）';
+    fetch('/api/device/connect', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ address: address })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      renderDevice(d.device || {});
+      try { localStorage.removeItem('dgreader.device'); } catch (e) { }
+      if (!d.ok) { $('devStatus').textContent = '连接失败：' + (d.error || ''); }
+    }).catch(function (e) {
+      $('devStatus').textContent = '连接失败：' + e.message;
+    });
+  }
+
+  function devDisconnect() {
+    fetch('/api/device/disconnect', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.device) { renderDevice(d.device); }
+    }).catch(function () { });
+  }
+
+  function devTest() {
+    var a = Number($('devA').value) || 0;
+    var b = Number($('devB').value) || 0;
+    var waveA = $('devWaveA').value;
+    var waveB = $('devWaveB').value;
+    $('devStatus').textContent = '测试中：A=' + a + '(' + waveA + ')  B=' + b + '(' + waveB + ')';
+    fetch('/api/device/test', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ a: a, b: b, waveA: waveA, waveB: waveB, seconds: 3 })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { $('devStatus').textContent = '测试失败：' + (d.error || ''); }
+    }).catch(function (e) { $('devStatus').textContent = '测试失败：' + e.message; });
+  }
+
+  function devStop() {
+    fetch('/api/device/stop', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.device) { renderDevice(d.device); }
+      $('devStatus').textContent = '已停止';
+    }).catch(function () { });
+  }
+
+  // ---------------- 项目 / 场景 ----------------
+  var projectData = { active: '', projects: [] };
+
+  function loadProjects() {
+    return fetch('/api/projects').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '读取项目失败'); }
+      projectData = d;
+      var ps = d.projects || [];
+      $('projSelect').innerHTML = ps.map(function (p) {
+        return '<option value="' + p.id + '">' + esc(p.name) + '</option>';
+      }).join('');
+      $('projSelect').value = d.active;
+      var proj = ps.filter(function (p) { return p.id === d.active; })[0];
+      $('sceneSelect').innerHTML = (proj ? proj.scenes : []).map(function (s) {
+        return '<option value="' + s.id + '">' + esc(s.name) + ' (' + s.count + ')</option>';
+      }).join('');
+      if (proj) { $('sceneSelect').value = proj.activeScene; }
+      $('projHint').textContent = proj ? (t('当前游戏：') + proj.name) : '';
+      if (proj) {
+        $('pName').value = proj.name;
+        $('gDir').value = '';
+        var sc = proj.scenes.filter(function (s) { return s.id === proj.activeScene; })[0];
+        $('sName').value = sc ? sc.name : '';
+      }
+      return d;
+    });
+  }
+
+  function switchProject(id) {
+    fetch('/api/projects/' + encodeURIComponent(id) + '/activate', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '切换失败'); }
+        return loadProjects();
+      })
+      .then(function () { return loadProfile(); })
+      .then(clearForm)
+      .catch(function (e) { $('projHint').textContent = e.message; });
+  }
+
+  function switchScene(id) {
+    fetch('/api/projects/' + encodeURIComponent(projectData.active) + '/scenes/' + encodeURIComponent(id) + '/activate', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '切换失败'); }
+        return loadProjects();
+      })
+      .then(function () { return loadProfile(); })
+      .then(clearForm)
+      .catch(function (e) { $('projHint').textContent = e.message; });
+  }
+
+  function browse(mode) {
+    return fetch('/api/game/browse', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ mode: mode })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '选择失败'); }
+      return d.path || '';
+    });
+  }
+
+  function projNew() {
+    browse('folder').then(function (dir) {
+      if (!dir) { return; }
+      var name = prompt('请输入游戏名（建议与游戏本名一致）', dir.split('\\').pop() || '新游戏');
+      if (name === null) { return; }
+      return fetch('/api/projects', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: name, gameDir: dir })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '创建失败'); }
+        return loadProjects();
+      }).then(function () { return loadProfile(); });
+    }).catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function projRename() {
+    var name = prompt('新的游戏名', $('pName').value);
+    if (!name) { return; }
+    fetch('/api/projects/' + encodeURIComponent(projectData.active), {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '重命名失败'); }
+      return loadProjects();
+    }).then(function () { setStatus($('projStatus'), '已重命名', true); })
+      .catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function projDelete() {
+    if (!confirm('删除项目“' + $('pName').value + '”？场景和规则都会删除。')) { return; }
+    fetch('/api/projects/' + encodeURIComponent(projectData.active), { method: 'DELETE' })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '删除失败'); }
+        return loadProjects();
+      }).then(function () { return loadProfile(); }).then(clearForm)
+      .catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function sceneNew() {
+    var name = prompt('场景名', '新场景');
+    if (!name) { return; }
+    fetch('/api/projects/' + encodeURIComponent(projectData.active) + '/scenes', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '创建失败'); }
+      return loadProjects();
+    }).then(function () { return loadProfile(); }).then(clearForm)
+      .catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function sceneRename() {
+    var name = prompt('新的场景名', $('sName').value);
+    if (!name) { return; }
+    var sceneId = $('sceneSelect').value;
+    fetch('/api/projects/' + encodeURIComponent(projectData.active) + '/scenes/' + encodeURIComponent(sceneId), {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '重命名失败'); }
+      return loadProjects();
+    }).catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function sceneDelete() {
+    var sceneId = $('sceneSelect').value;
+    if (!confirm('删除场景“' + $('sName').value + '”？')) { return; }
+    fetch('/api/projects/' + encodeURIComponent(projectData.active) + '/scenes/' + encodeURIComponent(sceneId), { method: 'DELETE' })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '删除失败'); }
+        return loadProjects();
+      }).then(function () { return loadProfile(); }).then(clearForm)
+      .catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function gBrowse() {
+    browse('folder').then(function (p) { if (p) { $('gDir').value = p; } }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
+  }
+
+  function gStatus() {
+    var dir = $('gDir').value.trim();
+    if (!dir) { setStatus($('gStatus'), '请先选择游戏目录', false); return; }
+    fetch('/api/game/status?dir=' + encodeURIComponent(dir))
+      .then(function (r) { return r.json(); }).then(function (d) {
+        var s = d.status || {};
+        if (!s.ok) { setStatus($('gStatus'), s.error || '无效目录', false); return; }
+        $('gStatus').textContent = '插件' + (s.installed ? '已安装' : '未安装') +
+          ' / ' + (s.registered ? '已注册' : '未注册') + ' / 插件总数 ' + s.entries +
+          ' / 编码 ' + (s.encoding || '?') + (s.bom ? ' (BOM)' : '') +
+          (s.parseError ? ' / 解析：' + s.parseError : '');
+        $('gStatus').className = (s.installed && s.registered) ? 'note ok' : 'note';
+      }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
+  }
+
+  function gInstall() {
+    var dir = $('gDir').value.trim();
+    if (!dir) { setStatus($('gStatus'), '请先选择游戏目录', false); return; }
+    fetch('/api/game/install', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ gameDir: dir })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '安装失败'); }
+      gStatus();
+      setStatus($('gStatus'), '插件已安装（已备份 plugins.js）', true);
+    }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
+  }
+
+  function gRemove() {
+    var dir = $('gDir').value.trim();
+    if (!dir) { setStatus($('gStatus'), '请先选择游戏目录', false); return; }
+    if (!confirm('从游戏移除 DGRMHook 插件？（会备份 plugins.js）')) { return; }
+    fetch('/api/game/remove', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ gameDir: dir })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '移除失败'); }
+      gStatus();
+      setStatus($('gStatus'), '插件已移除', true);
+    }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
+  }
+
+  function downloadText(filename, text, mime) {
+    var blob = new Blob([text], { type: mime || 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  function downloadJson(filename, obj) {
+    var blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  function exportScene() {
+    fetch('/api/scene/export').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '导出失败'); }
+      downloadJson((d.name || 'scene') + '.json', { format: 'dgreader.scene/1', name: d.name, rules: d.rules });
+    }).catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function exportProject() {
+    fetch('/api/projects/' + encodeURIComponent(projectData.active) + '/export')
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '导出失败'); }
+        downloadJson((d.data.project.name || 'project') + '.json', d.data);
+      }).catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function readFileText(file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function () { resolve(String(fr.result || '')); };
+      fr.onerror = function () { reject(new Error('读取文件失败')); };
+      fr.readAsText(file, 'utf-8');
+    });
+  }
+
+  function importSceneFile(file) {
+    readFileText(file).then(function (content) {
+      return fetch('/api/scene/import', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: content, replace: true })
+      });
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '导入失败'); }
+      return loadProfile();
+    }).then(function () { setStatus($('projStatus'), '场景规则已导入', true); })
+      .catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function importProjectFile(file) {
+    readFileText(file).then(function (content) {
+      return fetch('/api/projects/import', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: content })
+      });
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '导入失败'); }
+      return loadProjects();
+    }).then(function () { return loadProfile(); })
+      .then(function () { setStatus($('projStatus'), '项目已导入', true); })
+      .catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  // ---------------- 波形库 ----------------
+  var waveList = [];
+
+  function loadWaves() {
+    return fetch('/api/waves').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '读取波形失败'); }
+      waveList = d.waves || [];
+      refreshWaveSelects();
+      $('waveExportSelect').innerHTML = waveList.map(function (w) {
+        return '<option value="' + esc(w.name) + '">' + esc(w.label || w.name) + (w.type === 'custom' ? '（自定义）' : '') + '</option>';
+      }).join('');
+      return waveList;
+    });
+  }
+
+  function refreshWaveSelects() {
+    ['rAWave', 'rBWave', 'devWaveA', 'devWaveB'].forEach(function (id) {
+      var sel = $(id);
+      if (!sel) { return; }
+      var cur = sel.value;
+      sel.innerHTML = waveList.map(function (w) {
+        return '<option value="' + esc(w.name) + '">' + esc(w.label || w.name) + (w.type === 'custom' ? ' *' : '') + '</option>';
+      }).join('');
+      if (waveList.some(function (w) { return w.name === cur; })) { sel.value = cur; }
+    });
+  }
+
+  function waveImport() {
+    var input = $('waveFile');
+    if (!input.files || !input.files[0]) { setStatus($('waveStatus'), '先选择 .pulse 文件', false); return; }
+    var file = input.files[0];
+    readFileText(file).then(function (content) {
+      return fetch('/api/waves/import', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, content: content })
+      });
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '导入失败'); }
+      setStatus($('waveStatus'), '已导入：' + d.imported.join('、'), true);
+      input.value = '';
+      return loadWaves();
+    }).catch(function (e) { setStatus($('waveStatus'), e.message, false); });
+  }
+
+  function waveExport() {
+    var name = $('waveExportSelect').value;
+    if (!name) { return; }
+    fetch('/api/waves/export?name=' + encodeURIComponent(name))
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '导出失败'); }
+        downloadText(d.filename || (name + '.pulse'), d.content || '', 'text/plain');
+        setStatus($('waveStatus'), '已导出 ' + (d.filename || name + '.pulse'), true);
+      }).catch(function (e) { setStatus($('waveStatus'), e.message, false); });
+  }
+
+  function waveDelete() {
+    var name = $('waveExportSelect').value;
+    if (!name) { return; }
+    if (!confirm('删除自定义波形“' + name + '”？')) { return; }
+    fetch('/api/waves/' + encodeURIComponent(name), { method: 'DELETE' })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '删除失败'); }
+        setStatus($('waveStatus'), '已删除', true);
+        return loadWaves();
+      }).catch(function (e) { setStatus($('waveStatus'), e.message, false); });
+  }
+
+  // ---------------- OCR ----------------
+  var ocrInfo = { roi: null, origin: { x: 0, y: 0 }, displayRoi: null, languages: [] };
+  var OCR_LANG_LABELS = {
+    'zh-Hans-CN': '中文（简体）', 'zh-Hans': '中文（简体）', 'zh-Hant': '中文（繁體）',
+    'ja': '日本語', 'ja-JP': '日本語', 'en-US': 'English', 'en-GB': 'English'
+  };
+
+  function ocrLangLabel(tag) {
+    return OCR_LANG_LABELS[tag] || tag;
+  }
+
+  function renderOcrStatus(s) {
+    s = s || {};
+    var text = s.running ? (s.monitoring ? t('监视中') : t('服务已启动')) : t('未启动');
+    if (!s.running && s.error) { text += ' · ' + s.error; }
+    $('ocrStatus').textContent = text;
+    $('ocrStatus').className = s.running ? 'note ok' : 'note';
+    if (s.languages) { fillOcrLanguages(s.languages); }
+  }
+
+  function fillOcrLanguages(langs) {
+    ocrInfo.languages = langs || [];
+    var sel = $('ocrLang');
+    var cur = sel.value;
+    sel.innerHTML = ocrInfo.languages.map(function (t) {
+      return '<option value="' + esc(t) + '">' + esc(ocrLangLabel(t)) + '</option>';
+    }).join('') || '<option value="">（无可用 OCR 语言）</option>';
+    if (ocrInfo.languages.indexOf(cur) >= 0) { sel.value = cur; }
+  }
+
+  function loadOcrStatus() {
+    return fetch('/api/ocr/status').then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) { renderOcrStatus(d.status); }
+      return d;
+    });
+  }
+
+  function ocrStart() {
+    fetch('/api/ocr/start', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '启动失败'); }
+      renderOcrStatus(d.status);
+      fillOcrLanguages(d.languages);
+      if (!d.languages || !d.languages.length) {
+        setStatus($('ocrStatus'), '未安装 OCR 语言包：请到 Windows 设置 → 时间和语言 → 语言，添加中文/日文/英文并安装“光学字符识别”。', false);
+      } else {
+        setStatus($('ocrStatus'), 'OCR 服务已启动', true);
+      }
+    }).catch(function (e) { setStatus($('ocrStatus'), e.message, false); });
+  }
+
+  function ocrStop() {
+    fetch('/api/ocr/stop', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) { renderOcrStatus(d.status); }
+    }).catch(function () { });
+  }
+
+  function ocrRefreshLangs() {
+    fetch('/api/ocr/start', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '读取失败'); }
+      renderOcrStatus(d.status);
+      fillOcrLanguages(d.languages);
+    }).catch(function (e) { setStatus($('ocrStatus'), e.message, false); });
+  }
+
+  function ocrSetupCanvas() {
+    var img = $('ocrShot');
+    var cv = $('ocrCanvas');
+    if (!img.naturalWidth) { return; }
+    cv.width = img.clientWidth;
+    cv.height = img.clientHeight;
+    cv.style.width = img.clientWidth + 'px';
+    cv.style.height = img.clientHeight + 'px';
+    cv.style.left = img.offsetLeft + 'px';
+    cv.style.top = img.offsetTop + 'px';
+    ocrDrawRect();
+  }
+
+  function ocrDrawRect() {
+    var cv = $('ocrCanvas');
+    var ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    var r = ocrInfo.displayRoi;
+    if (!r) { return; }
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.18)';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+  }
+
+  function ocrShot() {
+    fetch('/api/ocr/shot', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '截图失败'); }
+      ocrInfo.origin = { x: d.x, y: d.y };
+      ocrInfo.roi = null;
+      ocrInfo.displayRoi = null;
+      $('ocrRoiText').textContent = '尚未选择区域';
+      var img = $('ocrShot');
+      img.onload = function () {
+        $('ocrShotWrap').style.display = '';
+        ocrSetupCanvas();
+      };
+      img.src = d.url;
+      $('ocrResult').textContent = '截图 ' + d.width + '×' + d.height + '，请在图上拖动框选要识别的区域。';
+    }).catch(function (e) { setStatus($('ocrStatus'), e.message, false); });
+  }
+
+  function ocrBindCanvas() {
+    var cv = $('ocrCanvas');
+    var drag = null;
+    cv.onmousedown = function (e) {
+      if (!ocrInfo.languages.length) { return; }
+      drag = { x: e.offsetX, y: e.offsetY };
+      ocrInfo.displayRoi = { x: drag.x, y: drag.y, w: 0, h: 0 };
+    };
+    cv.onmousemove = function (e) {
+      if (!drag) { return; }
+      var x = Math.min(drag.x, e.offsetX);
+      var y = Math.min(drag.y, e.offsetY);
+      var w = Math.abs(e.offsetX - drag.x);
+      var h = Math.abs(e.offsetY - drag.y);
+      ocrInfo.displayRoi = { x: x, y: y, w: w, h: h };
+      ocrDrawRect();
+    };
+    cv.onmouseup = function () {
+      if (!drag) { return; }
+      var r = ocrInfo.displayRoi;
+      drag = null;
+      if (!r || r.w < 5 || r.h < 5) { ocrInfo.displayRoi = null; ocrDrawRect(); return; }
+      var img = $('ocrShot');
+      var sx = img.naturalWidth / cv.width;
+      var sy = img.naturalHeight / cv.height;
+      ocrInfo.roi = {
+        x: Math.round(ocrInfo.origin.x + r.x * sx),
+        y: Math.round(ocrInfo.origin.y + r.y * sy),
+        w: Math.round(r.w * sx),
+        h: Math.round(r.h * sy)
+      };
+      $('ocrRoiText').textContent = '区域 ' + ocrInfo.roi.w + '×' + ocrInfo.roi.h + ' @ ' + ocrInfo.roi.x + ',' + ocrInfo.roi.y;
+      ocrDrawRect();
+    };
+  }
+
+  function ocrTest() {
+    if (!ocrInfo.roi) { setStatus($('ocrResult'), '请先截屏并框选区域', false); return; }
+    var lang = $('ocrLang').value;
+    if (!lang) { setStatus($('ocrResult'), '请先安装并选择 OCR 语言', false); return; }
+    fetch('/api/ocr/recognize', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ region: ocrInfo.roi, lang: lang })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '识别失败'); }
+      $('ocrResult').textContent = d.text ? d.text : '（没有识别到文字）';
+      $('ocrResult').className = 'note';
+    }).catch(function (e) { setStatus($('ocrResult'), e.message, false); });
+  }
+
+  function ocrMonitorStart() {
+    if (!ocrInfo.roi) { setStatus($('ocrResult'), '请先截屏并框选区域', false); return; }
+    var lang = $('ocrLang').value;
+    if (!lang) { setStatus($('ocrResult'), '请先安装并选择 OCR 语言', false); return; }
+    fetch('/api/ocr/monitor/start', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ region: ocrInfo.roi, lang: lang, intervalMs: Number($('ocrInterval').value) || 2000 })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '启动失败'); }
+      renderOcrStatus(d.status);
+      setStatus($('ocrStatus'), 'OCR 监视已启动', true);
+    }).catch(function (e) { setStatus($('ocrResult'), e.message, false); });
+  }
+
+  function ocrMonitorStop() {
+    fetch('/api/ocr/monitor/stop', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) { renderOcrStatus(d.status); }
+    }).catch(function () { });
+  }
+
+  // ---------------- 事件流 ----------------
+  function handleEvent(ev) {
+    switch (ev.t) {
+      case 'hello':
+        setConn(true);
+        setMap(ev.mapId);
+        if (ev.actors) { state.actors = ev.actors; }
+        break;
+      case 'map': setMap(ev.id, ev.name); break;
+      case 'message': showMessage(ev); break;
+      case 'message_end': clearMessage(); break;
+      case 'ticker_meta': state.lastMeta = ev; break;
+      case 'ticker': showTicker(ev); break;
+      case 'battlelog': showBattlelog(ev); break;
+      case 'snapshot':
+        if (ev.mapId) { setMap(ev.mapId, ev.map); }
+        if (ev.vars) { for (var k in ev.vars) { state.vars[k] = ev.vars[k]; } }
+        if (ev.party) { state.party = ev.party; }
+        break;
+      case 'var': state.vars[ev.id] = ev.value; break;
+      case 'switch': break;
+      default: break;
+    }
+  }
+
+  function connect() {
+    var es = new EventSource('/events');
+    es.onopen = function () { setConn(true); };
+    es.onerror = function () { setConn(false); };
+    es.onmessage = function (e) {
+      var msg;
+      try { msg = JSON.parse(e.data); } catch (err) { return; }
+      if (msg.type === 'conn') { setConn(msg.connected); return; }
+      if (msg.type === 'action' || msg.type === 'log') { addLog(msg); return; }
+      if (msg.type === 'device') { renderDevice(msg.device); return; }
+    if (msg.type === 'ocr') {
+      if (msg.status) { renderOcrStatus(msg.status); }
+      if (msg.text !== undefined) { $('ocrResult').textContent = msg.text || '（等待文字…）'; }
+      return;
+    }
+      if (msg.type === 'config') {
+        if (msg.profile) { profile = msg.profile; renderRuleList(); }
+        if (msg.output) { output = msg.output; fillOutput(); }
+        return;
+      }
+      if (msg.type === 'event') { handleEvent(msg.event); }
+    };
+  }
+
+  // ---------------- 初始化 ----------------
+  function initTabs() {
+    var buttons = document.querySelectorAll('nav button');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].onclick = function () {
+        var tab = this.getAttribute('data-tab');
+        for (var j = 0; j < buttons.length; j++) { buttons[j].classList.toggle('active', buttons[j] === this); }
+        ['read', 'rules', 'output', 'device', 'project', 'ocr'].forEach(function (t) {
+          $('view-' + t).classList.toggle('active', t === tab);
+        });
+        if (tab === 'rules' && !profile) { loadProfile().catch(function (e) { setStatus($('saveStatus'), e.message, false); }); }
+        if (tab === 'output' && !profile) { loadProfile().catch(function () {}); }
+      };
+    }
+  }
+
+  $('uiLang').onchange = function () {
+    if (this.value === 'other') {
+      this.value = DGRMI18n.current();
+      showTransNotice();
+      return;
+    }
+    DGRMI18n.apply(this.value);
+  };
+  $('btnTransClose').onclick = function () { $('transNotice').style.display = 'none'; };
+  $('uiLang').value = DGRMI18n.current();
+
+  initTabs();
+  $('rawToggle').onchange = function () { renderMessage(); renderTicker(); renderBattlelog(); };
+  $('btnNew').onclick = function () {
+    if (!profile) {
+      loadProfile().then(clearForm).catch(function (e) { setStatus($('saveStatus'), e.message, false); });
+    } else { clearForm(); }
+  };
+  $('btnCancel').onclick = clearForm;
+  $('btnSave').onclick = saveRule;
+  $('btnDelete').onclick = function () { if (editingId) { deleteRule(editingId); clearForm(); } };
+  $('btnReload').onclick = function () { loadProfile().then(function () { setStatus($('saveStatus'), '已重新载入', true); }).catch(function (e) { setStatus($('saveStatus'), e.message, false); }); };
+  $('rSource').onchange = updateRuleForm;
+  $('rOp').onchange = updateRuleForm;
+  $('btnSaveOutput').onclick = saveOutput;
+  $('btnDevScan').onclick = devScan;
+  $('btnDevUse').onclick = devUseFound;
+  $('btnDevConnect').onclick = devConnect;
+  $('btnDevDisconnect').onclick = devDisconnect;
+  $('btnDevTest').onclick = devTest;
+  $('btnDevStop').onclick = devStop;
+  $('devA').oninput = function () { $('devAVal').textContent = this.value; };
+  $('devB').oninput = function () { $('devBVal').textContent = this.value; };
+  try { localStorage.removeItem('dgreader.device'); } catch (e) { }
+
+  $('projSelect').onchange = function () { switchProject(this.value); };
+  $('sceneSelect').onchange = function () { switchScene(this.value); };
+  $('btnProjNew').onclick = projNew;
+  $('btnProjRename').onclick = projRename;
+  $('btnProjDelete').onclick = projDelete;
+  $('btnSceneNew').onclick = sceneNew;
+  $('btnSceneRename').onclick = sceneRename;
+  $('btnSceneDelete').onclick = sceneDelete;
+  $('btnGBrowse').onclick = gBrowse;
+  $('btnGStatus').onclick = gStatus;
+  $('btnGInstall').onclick = gInstall;
+  $('btnGRemove').onclick = gRemove;
+  $('btnExportScene').onclick = exportScene;
+  $('btnImportScene').onclick = function () { $('fileScene').click(); };
+  $('btnExportProject').onclick = exportProject;
+  $('btnImportProject').onclick = function () { $('fileProject').click(); };
+  $('fileScene').onchange = function () { if (this.files[0]) { importSceneFile(this.files[0]); } this.value = ''; };
+  $('fileProject').onchange = function () { if (this.files[0]) { importProjectFile(this.files[0]); } this.value = ''; };
+  $('btnWaveImport').onclick = waveImport;
+  $('btnWaveExport').onclick = waveExport;
+  $('btnWaveDelete').onclick = waveDelete;
+  $('btnOcrStart').onclick = ocrStart;
+  $('btnOcrStop').onclick = ocrStop;
+  $('btnOcrLang').onclick = ocrRefreshLangs;
+  $('btnOcrShot').onclick = ocrShot;
+  $('btnOcrTest').onclick = ocrTest;
+  $('btnOcrMonitor').onclick = ocrMonitorStart;
+  $('btnOcrMonitorStop').onclick = ocrMonitorStop;
+  ocrBindCanvas();
+  window.addEventListener('resize', ocrSetupCanvas);
+
+  fetch('/state').then(function (r) { return r.json(); }).then(function (s) {
+    setConn(!!s.connected);
+    setMap(s.mapId, s.map);
+    if (s.vars) { for (var k in s.vars) { state.vars[k] = s.vars[k]; } }
+    if (s.actors) { state.actors = s.actors; }
+    if (s.party) { state.party = s.party; }
+    if (s.messageRaw) { showMessage({ text: s.messageRaw, speaker: s.messageSpeaker, eventName: s.messageEventName, phase: 'last' }); }
+    if (s.tickerRaw) { state.lastMeta = { kind: s.tickerKind, id: s.tickerId }; showTicker({ text: s.tickerRaw }); }
+    if (s.battlelogRaw) { state.blLines = [s.battlelogRaw]; renderBattlelog(); }
+    if (s.output) { output = s.output; fillOutput(); }
+    if (s.device) { renderDevice(s.device); }
+    if (s.ocr) { $('ocrResult').textContent = s.ocr; }
+  }).catch(function () {});
+
+  loadProfile().catch(function () {});
+  loadProjects().catch(function () {});
+  loadWaves().catch(function () {});
+  connect();
+})();
+</script>
+</body>
+</html>
