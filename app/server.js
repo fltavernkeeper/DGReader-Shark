@@ -1090,11 +1090,65 @@ if (require.main === module) {
                 return;
             }
 
+            if (url === '/api/waves/preview' && req.method === 'POST') {
+                withJson(req, res, (m) => {
+                    const files = Array.isArray(m.files) ? m.files : [];
+                    const used = new Set(waves.custom.map((w) => w.name));
+                    const names = [];
+                    const errors = [];
+                    files.forEach((f) => {
+                        try {
+                            const list = parsePulse(f.content, f.filename || '导入波形');
+                            list.forEach((w) => {
+                                const duplicate = used.has(w.name);
+                                names.push({ filename: f.filename || '', name: w.name, duplicate: duplicate });
+                                used.add(w.name);
+                            });
+                        } catch (e) {
+                            errors.push({ filename: f.filename || '', error: e.message });
+                        }
+                    });
+                    jsonRes(res, 200, { ok: true, names: names, duplicates: names.filter((x) => x.duplicate), errors: errors });
+                });
+                return;
+            }
+
             if (url === '/api/waves/import' && req.method === 'POST') {
                 withJson(req, res, (m) => {
                     const list = parsePulse(m.content, m.filename || '导入波形');
-                    list.forEach((w) => waves.addCustom(w.name, w.points, w.header));
-                    jsonRes(res, 200, { ok: true, imported: list.map((w) => w.name), waves: waves.list() });
+                    const renameDuplicates = !!m.renameDuplicates;
+                    const policy = ['rename', 'skip', 'overwrite'].indexOf(m.duplicatePolicy) >= 0
+                        ? m.duplicatePolicy
+                        : (renameDuplicates ? 'rename' : 'overwrite');
+                    const used = new Set(waves.custom.map((w) => w.name));
+                    const imported = [];
+                    const renamed = [];
+                    const skipped = [];
+                    const overwritten = [];
+                    list.forEach((w) => {
+                        let name = w.name;
+                        if (used.has(name)) {
+                            if (policy === 'skip') {
+                                skipped.push(name);
+                                return;
+                            }
+                            if (policy === 'overwrite') {
+                                overwritten.push(name);
+                            } else {
+                                const from = name;
+                                let base = String(name).replace(/\s*\(\d+\)\s*$/, '');
+                                if (!base) { base = String(name || '导入波形'); }
+                                let n = 2;
+                                while (used.has(base + ' (' + n + ')')) { n++; }
+                                name = base + ' (' + n + ')';
+                                renamed.push({ from: from, to: name });
+                            }
+                        }
+                        used.add(name);
+                        waves.addCustom(name, w.points, w.header);
+                        imported.push(name);
+                    });
+                    jsonRes(res, 200, { ok: true, imported: imported, renamed: renamed, skipped: skipped, overwritten: overwritten, waves: waves.list() });
                 });
                 return;
             }

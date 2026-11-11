@@ -172,7 +172,7 @@
 
     <div class="col">
       <section class="panel">
-        <div class="hd"><b>规则触发</b><span id="ruleCount"></span></div>
+        <div class="hd"><b>规则触发记录</b><span id="ruleCount"></span></div>
         <div class="bd"><div class="log" id="log"></div></div>
       </section>
       <section class="panel">
@@ -369,20 +369,20 @@
 <main id="view-project">
   <div class="grid">
     <section class="panel">
-      <div class="hd"><b>游戏</b><span>每个游戏一个项目</span></div>
+      <div class="hd"><b>项目</b><span>每个游戏一个项目</span></div>
       <div class="bd">
         <div class="row">
-          <label class="f" style="flex:1">游戏名<input id="pName" placeholder="建议填写游戏名" /></label>
+          <label class="f" style="flex:1">项目名<input id="pName" placeholder="建议填写项目名" /></label>
           <button class="btn" id="btnProjRename">重命名</button>
           <button class="btn danger" id="btnProjDelete">删除</button>
         </div>
         <div class="row" style="margin-top:10px">
-          <button class="btn primary" id="btnProjNew">新建游戏</button>
+          <button class="btn primary" id="btnProjNew">新建项目</button>
           <span id="projStatus" class="note"></span>
         </div>
         <div class="note" style="margin-top:10px">
-          新建游戏会弹窗选择游戏目录；不同游戏之间的规则/变量互相独立。
-          游戏名建议直接填写游戏本名，方便识别。
+          新建项目会弹窗选择游戏目录；不同游戏之间的规则/变量互相独立。
+          项目名建议直接填写游戏本名，方便识别。
         </div>
       </div>
     </section>
@@ -479,9 +479,10 @@
         </div>
 
         <div class="row" style="margin-top:10px">
-          <button class="btn" id="btnOcrShot" title="点击后在截图上按住左键拖动框选">截屏后拖动左键框选</button>
-          <span id="ocrRoiText" class="note">点击按钮后，在截图上按住左键拖动，框住对话框文字区域</span>
+          <button class="btn primary" id="btnOcrShot">截屏</button>
+          <button class="btn" id="btnOcrShotDelay">5s后截屏</button>
         </div>
+        <div class="note" id="ocrRoiText" style="margin-top:6px">点击按钮后，在截图上按住左键拖动，框住要识别的文字区域</div>
 
         <div id="ocrShotWrap" style="display:none;position:relative;margin-top:10px;max-height:420px;overflow:auto;border:1px solid var(--line)">
           <img id="ocrShot" style="display:block;max-width:100%;user-select:none" />
@@ -519,7 +520,7 @@
       <section class="panel">
           <div class="hd"><b>关于</b><span>DGReader 鲨鱼版</span></div>
           <div class="bd note">
-          当前版本：<span id="aboutVersion">v1.05</span><br>
+          当前版本：<span id="aboutVersion">v1.06</span><br>
           最新 Release：<a href="https://github.com/fltavernkeeper/DGReader-Shark/releases" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/releases</a><br>
           Discussions：<a href="https://github.com/fltavernkeeper/DGReader-Shark/discussions" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/discussions</a><br>
           <span class="dim">更新不定期。<br>使用问题、兼容性讨论、经验交流、功能建议、波形与预设，都可以在 Discussions 页面讨论。</span>
@@ -620,7 +621,7 @@
         <div class="panel2" style="margin-top:14px">
           <div class="hd2">波形库（.pulse 导入/导出）</div>
           <div class="row">
-            <input type="file" id="waveFile" accept=".pulse,.json" />
+            <input type="file" id="waveFile" accept=".pulse,.json" multiple />
             <button class="btn" id="btnWaveImport">导入 .pulse</button>
           </div>
           <div class="row" style="margin-top:8px">
@@ -631,7 +632,7 @@
             <button class="btn danger" id="btnWaveDelete">删除自定义</button>
           </div>
           <div class="note" id="waveStatus" style="margin-top:6px">
-            支持 Dungeonlab+pulse 文本格式，以及 JSON。<br>
+            支持 Dungeonlab+pulse 文本格式，以及 JSON；可一次选择多个文件。<br>
             导入限制：单个波形最多 30 段、4800 个点（约 120 秒）；多段按顺序合并。外部官方格式每点按 0.1 秒展开，特殊头部/参数可能无法完全还原。
           </div>
           <details class="note" style="margin-top:6px">
@@ -665,7 +666,20 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.05 By FL</span></footer>
+<div id="waveDupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;align-items:center;justify-content:center">
+  <div class="panel" style="max-width:560px;margin:20px">
+    <div class="hd"><b>重名波形</b></div>
+    <div class="bd note" id="waveDupText"></div>
+    <div class="bd row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn primary" id="waveDupRename">自动改名</button>
+      <button class="btn" id="waveDupOverwrite">覆盖</button>
+      <button class="btn" id="waveDupSkip">跳过</button>
+      <button class="btn danger" id="waveDupCancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<footer><span class="ver">v1.06 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
@@ -1267,6 +1281,26 @@
     return s;
   }
 
+  var waveDupResolve = null;
+  function askWaveDuplicate(dups) {
+    return new Promise(function (resolve) {
+      waveDupResolve = resolve;
+      $('waveDupText').textContent = tf('发现 {n} 个重名波形：{names}\n请选择处理方式。', {
+        n: dups.length,
+        names: dups.map(function (x) { return x.name; }).join('、')
+      });
+      $('waveDupModal').style.display = 'flex';
+    });
+  }
+  function answerWaveDuplicate(policy) {
+    $('waveDupModal').style.display = 'none';
+    if (waveDupResolve) {
+      var resolve = waveDupResolve;
+      waveDupResolve = null;
+      resolve(policy);
+    }
+  }
+
   function renderDevice(d) {
     state.device = d || {};
     setDevice(d);
@@ -1434,7 +1468,7 @@
   function projNew() {
     browse('folder').then(function (dir) {
       if (!dir) { return; }
-      var name = prompt('请输入游戏名（建议与游戏本名一致）', dir.split('\\').pop() || '新游戏');
+      var name = prompt(t('请输入项目名（建议与游戏本名一致）'), dir.split('\\').pop() || t('新项目'));
       if (name === null) { return; }
       return fetch('/api/projects', {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -1447,7 +1481,7 @@
   }
 
   function projRename() {
-    var name = prompt('新的游戏名', $('pName').value);
+    var name = prompt(t('新的项目名'), $('pName').value);
     if (!name) { return; }
     fetch('/api/projects/' + encodeURIComponent(projectData.active), {
       method: 'PATCH', headers: { 'content-type': 'application/json' },
@@ -1656,21 +1690,75 @@
     });
   }
 
-  function waveImport() {
+  async function waveImport() {
     var input = $('waveFile');
-    if (!input.files || !input.files[0]) { setStatus($('waveStatus'), '先选择 .pulse 文件', false); return; }
-    var file = input.files[0];
-    readFileText(file).then(function (content) {
-      return fetch('/api/waves/import', {
+    if (!input.files || !input.files.length) { setStatus($('waveStatus'), t('先选择 .pulse 文件'), false); return; }
+    var files = Array.prototype.slice.call(input.files);
+    var entries = [];
+    try {
+      for (var i = 0; i < files.length; i++) {
+        entries.push({ filename: files[i].name, content: await readFileText(files[i]) });
+      }
+    } catch (e) {
+      setStatus($('waveStatus'), e.message || '读取文件失败', false);
+      return;
+    }
+
+    try {
+      var previewRes = await fetch('/api/waves/preview', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, content: content })
+        body: JSON.stringify({ files: entries })
       });
-    }).then(function (r) { return r.json(); }).then(function (d) {
-      if (!d.ok) { throw new Error(d.error || '导入失败'); }
-      setStatus($('waveStatus'), '已导入：' + d.imported.join('、'), true);
-      input.value = '';
-      return loadWaves();
-    }).catch(function (e) { setStatus($('waveStatus'), e.message, false); });
+      var preview = await previewRes.json();
+      if (!preview.ok) { throw new Error(preview.error || '检查波形失败'); }
+      var policy = 'rename';
+      if (preview.duplicates && preview.duplicates.length) {
+        policy = await askWaveDuplicate(preview.duplicates);
+        if (!policy) {
+          setStatus($('waveStatus'), t('已取消导入'), false);
+          return;
+        }
+      }
+    } catch (e) {
+      setStatus($('waveStatus'), e.message || '检查波形失败', false);
+      return;
+    }
+
+    var ok = [];
+    var renamed = [];
+    var skipped = [];
+    var overwritten = [];
+    var failed = [];
+    for (var j = 0; j < entries.length; j++) {
+      try {
+        var r = await fetch('/api/waves/import', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ filename: entries[j].filename, content: entries[j].content, duplicatePolicy: policy })
+        });
+        var d = await r.json();
+        if (!d.ok) { throw new Error(d.error || '导入失败'); }
+        ok = ok.concat(d.imported || []);
+        renamed = renamed.concat(d.renamed || []);
+        skipped = skipped.concat(d.skipped || []);
+        overwritten = overwritten.concat(d.overwritten || []);
+      } catch (e) {
+        failed.push(entries[j].filename + '：' + (e.message || '导入失败'));
+      }
+    }
+
+    input.value = '';
+    await loadWaves();
+    var msg = tf('导入完成：成功 {n} 个', { n: ok.length });
+    if (renamed.length) { msg += tf('，改名 {n} 个', { n: renamed.length }); }
+    if (overwritten.length) { msg += tf('，覆盖 {n} 个', { n: overwritten.length }); }
+    if (skipped.length) { msg += tf('，跳过 {n} 个', { n: skipped.length }); }
+    if (failed.length) { msg += tf('，失败 {n} 个', { n: failed.length }); }
+    if (failed.length) {
+      msg += '：' + failed.join('；');
+      setStatus($('waveStatus'), msg, false);
+    } else {
+      setStatus($('waveStatus'), msg, true);
+    }
   }
 
   function waveExport() {
@@ -1786,21 +1874,44 @@
     ctx.strokeRect(r.x, r.y, r.w, r.h);
   }
 
-  function ocrShot() {
+  var ocrCountdownTimer = null;
+  function ocrCapture() {
     fetch('/api/ocr/shot', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) { throw new Error(d.error || '截图失败'); }
       ocrInfo.origin = { x: d.x, y: d.y };
       ocrInfo.roi = null;
       ocrInfo.displayRoi = null;
-      $('ocrRoiText').textContent = '尚未选择区域';
+      $('ocrRoiText').textContent = t('尚未选择区域');
       var img = $('ocrShot');
       img.onload = function () {
         $('ocrShotWrap').style.display = '';
         ocrSetupCanvas();
       };
       img.src = d.url;
-      $('ocrResult').textContent = '截图 ' + d.width + '×' + d.height + '，请在图上拖动框选要识别的区域。';
-    }).catch(function (e) { setStatus($('ocrStatus'), e.message, false); });
+      $('ocrResult').textContent = tf('截图 {w}×{h}，请在图上拖动框选要识别的区域。', { w: d.width, h: d.height });
+      setStatus($('ocrStatus'), t('已截屏，请切回 DGReader 框选区域'), true);
+    }).catch(function (e) { setStatus($('ocrStatus'), t('截图失败') + '：' + e.message, false); });
+  }
+
+  function ocrShot(delay) {
+    if (ocrCountdownTimer) { return; }
+    if (!delay || delay <= 0) { ocrCapture(); return; }
+    var left = Number(delay);
+    $('btnOcrShot').disabled = true;
+    $('btnOcrShotDelay').disabled = true;
+    setStatus($('ocrStatus'), tf('{n} 秒后截屏，请切换到游戏', { n: left }), true);
+    ocrCountdownTimer = setInterval(function () {
+      left--;
+      if (left > 0) {
+        setStatus($('ocrStatus'), tf('{n} 秒后截屏，请切换到游戏', { n: left }), true);
+        return;
+      }
+      clearInterval(ocrCountdownTimer);
+      ocrCountdownTimer = null;
+      $('btnOcrShot').disabled = false;
+      $('btnOcrShotDelay').disabled = false;
+      ocrCapture();
+    }, 1000);
   }
 
   function ocrBindCanvas() {
@@ -1952,6 +2063,10 @@
     if (lastDevice) { renderDevice(lastDevice); }
   };
   $('btnTransClose').onclick = function () { $('transNotice').style.display = 'none'; };
+  $('waveDupRename').onclick = function () { answerWaveDuplicate('rename'); };
+  $('waveDupOverwrite').onclick = function () { answerWaveDuplicate('overwrite'); };
+  $('waveDupSkip').onclick = function () { answerWaveDuplicate('skip'); };
+  $('waveDupCancel').onclick = function () { answerWaveDuplicate(null); };
   $('uiLang').value = DGRMI18n.current();
 
   initTabs();
@@ -2002,7 +2117,8 @@
   $('btnOcrStart').onclick = ocrStart;
   $('btnOcrStop').onclick = ocrStop;
   $('btnOcrLang').onclick = ocrRefreshLangs;
-  $('btnOcrShot').onclick = ocrShot;
+  $('btnOcrShot').onclick = function () { ocrShot(0); };
+  $('btnOcrShotDelay').onclick = function () { ocrShot(5); };
   $('btnOcrTest').onclick = ocrTest;
   $('btnOcrMonitor').onclick = ocrMonitorStart;
   $('btnOcrMonitorStop').onclick = ocrMonitorStop;
