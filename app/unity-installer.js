@@ -77,6 +77,22 @@ function assertClosed(root) {
 function probeDir(root) { return path.join(root, PROBE_DIRNAME); }
 function probePath(root) { return path.join(probeDir(root), PROBE_NAME); }
 
+// 安装/移除前备份已有文件，避免覆盖用户原来的 winhttp.dll 或探针配置
+function backupExisting(root) {
+    const items = [
+        { src: path.join(root, 'winhttp.dll'), name: 'winhttp.dll' },
+        { src: path.join(root, 'doorstop_config.ini'), name: 'doorstop_config.ini' },
+        { src: path.join(root, '.doorstop_version'), name: '.doorstop_version' },
+        { src: probePath(root), name: PROBE_NAME }
+    ].filter((x) => fs.existsSync(x.src));
+    if (!items.length) { return ''; }
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const dir = path.join(probeDir(root), 'backup-' + stamp);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const item of items) { fs.copyFileSync(item.src, path.join(dir, item.name)); }
+    return dir;
+}
+
 function installed(root) {
     return fs.existsSync(path.join(root, 'winhttp.dll')) &&
         fs.existsSync(path.join(root, 'doorstop_config.ini')) &&
@@ -109,7 +125,9 @@ function install(dir) {
     if (!fs.existsSync(DOORSTOP_DIR) || !fs.existsSync(PROBE_DLL)) {
         throw new Error('发布包缺少 Unity 探针文件');
     }
+    let backup = '';
     try {
+        backup = backupExisting(d.root);
         for (const name of ['winhttp.dll', 'doorstop_config.ini', '.doorstop_version']) {
             fs.copyFileSync(path.join(DOORSTOP_DIR, name), path.join(d.root, name));
         }
@@ -125,13 +143,14 @@ function install(dir) {
         }
         throw e;
     }
-    return { ok: true, engine: 'unity-mono', already: false, probeDir: probeDir(d.root) };
+    return { ok: true, engine: 'unity-mono', already: false, probeDir: probeDir(d.root), backup: backup };
 }
 
 function remove(dir) {
     const d = detect(dir);
     if (!d.ok) { throw new Error(d.error); }
     assertClosed(d.root);
+    const backup = backupExisting(d.root);
     const removed = [];
     const errors = [];
     // 先删配置/探针，最后删 winhttp.dll；即使 winhttp 被占用，也不会留下半安装状态
@@ -150,7 +169,7 @@ function remove(dir) {
     if (errors.length) {
         throw new Error('部分文件被占用，请关闭游戏后重试：' + errors.join(', '));
     }
-    return { ok: true, engine: 'unity-mono', removed: removed.length };
+    return { ok: true, engine: 'unity-mono', removed: removed.length, backup: backup };
 }
 
 module.exports = { detect, status, install, remove, normalizeRoot, probePath };

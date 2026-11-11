@@ -186,6 +186,13 @@ function status(gameDir) {
     };
 }
 
+function backupPluginFile(p, stamp) {
+    if (!fs.existsSync(p.pluginFile)) { return ''; }
+    const backup = p.pluginFile + '.dgrmhook.bak-' + stamp;
+    fs.copyFileSync(p.pluginFile, backup);
+    return backup;
+}
+
 function install(gameDir, options) {
     const p = resolveGame(gameDir);
     if (!p) { throw new Error('找不到 plugins 目录，确认路径是游戏根目录'); }
@@ -196,11 +203,12 @@ function install(gameDir, options) {
 
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backup = p.pluginsFile + '.dgrmhook.bak-' + stamp;
+    const pluginBackup = backupPluginFile(p, stamp);
 
     if (arrayHasEntry(buf, bounds)) {
         fs.copyFileSync(p.pluginsFile, backup);
         fs.copyFileSync(path.join(__dirname, PLUGIN_NAME + '.js'), p.pluginFile);
-        return { ok: true, already: true, encoding: det.encoding, bom: det.bom, backup: backup, entries: extractList(det.text).length };
+        return { ok: true, already: true, encoding: det.encoding, bom: det.bom, backup: backup, pluginBackup: pluginBackup, entries: extractList(det.text).length };
     }
 
     const out = addEntryBytes(buf, bounds);
@@ -209,7 +217,7 @@ function install(gameDir, options) {
     fs.copyFileSync(path.join(__dirname, PLUGIN_NAME + '.js'), p.pluginFile);
     let entries = 0;
     try { entries = extractList(det.text).length + 1; } catch (e) { entries = 0; }
-    return { ok: true, already: false, encoding: det.encoding, bom: det.bom, backup: backup, entries: entries };
+    return { ok: true, already: false, encoding: det.encoding, bom: det.bom, backup: backup, pluginBackup: pluginBackup, entries: entries };
 }
 
 function remove(gameDir) {
@@ -225,10 +233,11 @@ function remove(gameDir) {
     }
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backup = p.pluginsFile + '.dgrmhook.bak-' + stamp;
+    const pluginBackup = backupPluginFile(p, stamp);
     fs.copyFileSync(p.pluginsFile, backup);
     fs.writeFileSync(p.pluginsFile, out);
     if (fs.existsSync(p.pluginFile)) { fs.unlinkSync(p.pluginFile); }
-    return { ok: true, removed: 1, encoding: det.encoding, bom: det.bom, backup: backup };
+    return { ok: true, removed: 1, encoding: det.encoding, bom: det.bom, backup: backup, pluginBackup: pluginBackup };
 }
 
 module.exports = { resolveGame, status, install, remove, detectEncoding, PLUGIN_NAME };

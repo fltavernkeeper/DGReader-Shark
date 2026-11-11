@@ -512,6 +512,7 @@ function fire(rule, action, ctx, edge) {
         if (a.strength !== undefined) {
             a.strength = Math.max(0, Math.min(200, num(a.strength)));
         }
+        if (waves.isRandom(a.wave)) { a.wave = waves.pickRandomName(); }
         // 通道归属：避免 A 规则把 B 规则正在用的通道清零
         if (a.channel) {
             const ch = String(a.channel).toUpperCase();

@@ -206,7 +206,7 @@ class OpossumDevice {
         if (c.timer) { clearTimeout(c.timer); c.timer = null; }
         const strength = clamp(opts.strength, 0, 200);
         c.strength = strength;
-        c.wave = this.waves.normalize(opts.wave);
+        c.wave = this.waves.normalize(this.waves.pickIfRandom(opts.wave || opts.pulse));
         c.base = Math.round(strength / 2);
         c.start = Date.now();
         c.active = strength > 0;
@@ -256,9 +256,11 @@ class OpossumDevice {
 
     async test(a, b, waveA, waveB, seconds) {
         if (!this.connected) { throw new Error('设备未连接'); }
-        this.startChannel('A', { strength: a, wave: waveA, seconds: seconds }, 'test');
-        this.startChannel('B', { strength: b, wave: waveB, seconds: seconds }, 'test');
-        return { a: a, b: b, waveA: this.waves.normalize(waveA), waveB: this.waves.normalize(waveB), seconds: seconds };
+        const pickedA = this.waves.pickIfRandom(waveA);
+        const pickedB = this.waves.pickIfRandom(waveB);
+        this.startChannel('A', { strength: a, wave: pickedA, seconds: seconds }, 'test');
+        this.startChannel('B', { strength: b, wave: pickedB, seconds: seconds }, 'test');
+        return { a: a, b: b, waveA: this.waves.normalize(pickedA), waveB: this.waves.normalize(pickedB), seconds: seconds };
     }
 
     testActions(actions, fallbackSeconds) {
@@ -272,8 +274,9 @@ class OpossumDevice {
             const seconds = Number(a.seconds) > 0 ? Number(a.seconds) : (fallbackSeconds || 3);
             const ch = String(a.channel).toUpperCase();
             if (!this.channels[ch]) { continue; }
-            this.startChannel(ch, { strength: strength, wave: a.wave || a.pulse, seconds: seconds }, 'test');
-            applied.push({ channel: ch, strength: strength, wave: this.waves.normalize(a.wave || a.pulse), seconds: seconds });
+            const pickedWave = this.waves.pickIfRandom(a.wave || a.pulse);
+            this.startChannel(ch, { strength: strength, wave: pickedWave, seconds: seconds }, 'test');
+            applied.push({ channel: ch, strength: strength, wave: this.waves.normalize(pickedWave), seconds: seconds });
         }
         if (!applied.length) { throw new Error('规则没有可测试的输出'); }
         return applied;

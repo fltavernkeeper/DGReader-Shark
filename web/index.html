@@ -112,6 +112,7 @@
   <button data-tab="device">设备</button>
   <button data-tab="project">游戏 / 安装</button>
   <button data-tab="ocr">OCR（附赠）</button>
+  <button data-tab="about">关于</button>
 </nav>
 
 <div class="projectbar">
@@ -298,7 +299,7 @@
           <button class="btn" id="btnCancel">清空表单</button>
           <button class="btn danger" id="btnDelete" style="display:none">删除</button>
         </div>
-        <div class="note" style="margin-top:10px">
+        <div class="note" style="margin-top:10px" translate="no">
           条件示例：<br>
           · 对话框文本 <b>包含</b> “游泳” → A 通道 35 / 呼吸 / 3 秒<br>
           · 战斗播报 <b>正则</b> “今天天气怎么样|你吃了吗” → A 70 / 持续 / 3 秒<br>
@@ -355,7 +356,7 @@
       <div class="bd note">
         每条规则可独立设置 A / B：<br>
         · 是否启用<br>
-        · 波形（持续 / 呼吸 / 潮汐 / 心跳 / 脉冲 / 渐强 / 渐弱 / 锯齿 / 随机 / 按摩）<br>
+        · 波形<br>
         · 强度 0–200<br>
         · 秒数（0 表示持续到条件不成立）<br><br>
         A/B 的波形互不影响，设备层会按 25ms 粒度分别生成 B0 数据。<br>
@@ -404,7 +405,7 @@
     </section>
 
     <section class="panel">
-      <div class="hd"><b>游戏插件</b><span>安装 / 移除 DGRMHook</span></div>
+      <div class="hd"><b>游戏插件</b><span>安装 / 移除</span></div>
       <div class="bd">
         <div class="row">
           <label class="f" style="flex:1">游戏目录<input id="gDir" placeholder="选择游戏本体目录（RPG Maker 或 Unity 游戏根目录）" /></label>
@@ -416,11 +417,10 @@
           <button class="btn" id="btnGStatus">检查状态</button>
         </div>
         <div class="note" style="margin-top:10px">
-          插件作用：从游戏运行时读取已经解码好的文字，避免直接解析数据文件时
-          因 UTF-8 / GBK / Shift-JIS 等编码差异而读不出来。<br>
-          RPG Maker 会安装 DGRMHook 插件；Unity Mono 游戏会安装 Doorstop 文本探针。RPG Maker MV制作的游戏大部分可以读取，Unity制作的游戏并没有完全适配，实在不行请用OCR功能。<br>
+          插件作用：从游戏运行时读取已经解码好的文字。<br>
+          RPG Maker MV制作的游戏大部分可以读取，Unity制作的游戏并没有完全适配，实在不行请用OCR功能。<br>
           <span style="color:var(--warn)">不要对具有联网的Unity游戏使用该工具，可能被判定为使用外挂！</span><br>
-          安装/移除只改插件/探针文件，不会改写游戏原始数据，并会自动备份。
+          安装/移除只改插件文件，不会改写游戏原始数据，并会自动备份。
         </div>
         <div class="note" id="gStatus" style="margin-top:10px">未检查</div>
       </div>
@@ -509,6 +509,33 @@
         </div>
       </div>
     </section>
+  </div>
+</main>
+
+<!-- ============================= 关于 ============================= -->
+<main id="view-about">
+  <div class="grid">
+    <div class="col">
+      <section class="panel">
+          <div class="hd"><b>关于</b><span>DGReader 鲨鱼版</span></div>
+          <div class="bd note">
+          当前版本：<span id="aboutVersion">v1.05</span><br>
+          最新 Release：<a href="https://github.com/fltavernkeeper/DGReader-Shark/releases" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/releases</a><br>
+          Discussions：<a href="https://github.com/fltavernkeeper/DGReader-Shark/discussions" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/discussions</a><br>
+          <span class="dim">更新不定期。<br>使用问题、兼容性讨论、经验交流、功能建议、波形与预设，都可以在 Discussions 页面讨论。</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="hd"><b>获取更新</b></div>
+        <div class="bd note">
+          1. 打开最新 Release 页面。<br>
+          2. 下载最新的 DGReader Shark vX.XX.zip。<br>
+          3. 解压到新目录，不要直接覆盖旧目录。<br>
+          4. 确认新版可用后，再删除旧版。
+        </div>
+      </section>
+    </div>
   </div>
 </main>
 
@@ -604,13 +631,18 @@
             <button class="btn danger" id="btnWaveDelete">删除自定义</button>
           </div>
           <div class="note" id="waveStatus" style="margin-top:6px">
-            支持 Dungeonlab+pulse 文本格式，以及 JSON。
+            支持 Dungeonlab+pulse 文本格式，以及 JSON。<br>
+            导入限制：单个波形最多 30 段、4800 个点（约 120 秒）；多段按顺序合并。外部官方格式每点按 0.1 秒展开，特殊头部/参数可能无法完全还原。
           </div>
-        </div>
-
-        <div class="note" style="margin-top:12px">
-          连接可能要几秒；返回 <code>Unreachable</code> 通常是设备在睡眠、距离远或已被其它程序占用。<br>
-          强度 0–200，波形 0–100；断开或停止会自动归零。
+          <details class="note" style="margin-top:6px">
+            <summary>获取波形</summary>
+            <div>
+              第三方波形库：<a href="https://github.com/zakotoys/dglab-pulse-collect" target="_blank" rel="noopener">dglab-pulse-collect</a><br>
+              作者：zakotoys<br>
+              许可证：MIT<br>
+              说明：不同设备/版本的波形导入后可能和原工具效果有差异。
+            </div>
+          </details>
         </div>
       </div>
     </section>
@@ -618,7 +650,7 @@
     <section class="panel">
       <div class="hd"><b>说明</b></div>
       <div class="bd note">
-        负鼠是独立 BLE 设备，官方协议不需要郊狼。<br>
+        负鼠是DG-LAB地牢实验室生产的独立 BLE 设备。<br>
         在【输出】选择“直接驱动负鼠”后，规则就会直接控制设备。
       </div>
     </section>
@@ -633,7 +665,7 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.04 By FL</span></footer>
+<footer><span class="ver">v1.05 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
@@ -670,11 +702,15 @@
     $('transNotice').style.display = 'flex';
   }
 
+  var connState = false;
+  var lastDevice = null;
   function setConn(on) {
+    connState = !!on;
     $('gameLed').className = 'dot' + (on ? ' on' : '');
     $('connText').textContent = on ? t('游戏已连接') : t('游戏未连接');
   }
   function setDevice(d) {
+    lastDevice = d || null;
     const on = !!(d && d.connected);
     const running = !!(d && d.running);
     $('deviceLed').className = 'dot' + (on ? ' on' : (running ? ' yellow' : ''));
@@ -861,9 +897,10 @@
     var row = document.createElement('div');
     row.className = 'row';
     var ch = a.action && a.action.channel ? String(a.action.channel).toUpperCase() : '-';
+    var waveName = a.action && (a.action.wave || a.action.pulse);
     var detail = [];
     if (a.action && a.action.strength !== undefined) { detail.push('强度 ' + a.action.strength); }
-    if (a.action && a.action.pulse) { detail.push('波形 ' + a.action.pulse); }
+    if (waveName) { detail.push('波形 ' + (WAVE_NAMES[waveName] || waveName)); }
     if (a.action && a.action.seconds) { detail.push(a.action.seconds + 's'); }
     if (a.action && a.action.label) { detail.push(a.action.label); }
     if (a.sent) { detail.push('→ ' + a.sent); }
@@ -880,8 +917,8 @@
     if (a.action && a.action.channel) {
       var key = String(a.action.channel).toUpperCase();
       var strength = a.edge === 'ON' ? (a.action.strength || 0) : 0;
-      if (key === 'A') { $('chA').textContent = strength; $('pulseA').textContent = a.edge === 'ON' ? (a.action.pulse || '') : ''; }
-      if (key === 'B') { $('chB').textContent = strength; $('pulseB').textContent = a.edge === 'ON' ? (a.action.pulse || '') : ''; }
+      if (key === 'A') { $('chA').textContent = strength; $('pulseA').textContent = a.edge === 'ON' ? (waveName || '') : ''; }
+      if (key === 'B') { $('chB').textContent = strength; $('pulseB').textContent = a.edge === 'ON' ? (waveName || '') : ''; }
     }
   }
 
@@ -899,7 +936,8 @@
   var WAVE_NAMES = {
     const: '持续', sine: '呼吸', tide: '潮汐', heart: '心跳', pulse: '脉冲',
     rampUp: '渐强', rampDown: '渐弱', saw: '锯齿', random: '随机', massage: '按摩',
-    burst: '连击', wave: '波浪', knock: '敲击', crawl: '蠕动'
+    burst: '连击', wave: '波浪', knock: '敲击', crawl: '蠕动',
+    randomWave: '随机波形'
   };
 
   function loadProfile() {
@@ -1221,17 +1259,25 @@
   }
 
   // ---------------- 负鼠 BLE ----------------
+  function tf(key, vars) {
+    var s = t(key);
+    if (vars) {
+      Object.keys(vars).forEach(function (k) { s = s.split('{' + k + '}').join(String(vars[k])); });
+    }
+    return s;
+  }
+
   function renderDevice(d) {
     state.device = d || {};
     setDevice(d);
     var s = d || {};
     var text;
     if (s.connected) {
-      text = '已连接：' + (s.name || '') + '  ' + (s.address || '');
+      text = t('已连接：') + (s.name || '') + '  ' + (s.address || '');
     } else if (s.running) {
-      text = 'BLE 服务已启动，等待连接';
+      text = t('BLE 服务已启动，等待连接');
     } else {
-      text = '未连接';
+      text = t('未连接');
     }
     if (s.error) { text += '  ·  ' + s.error; }
     $('devStatus').textContent = text;
@@ -1254,45 +1300,45 @@
   }
 
   function devScan() {
-    $('devStatus').textContent = '正在扫描附近的负鼠…（约 6–30 秒）';
+    $('devStatus').textContent = t('正在扫描附近的负鼠…（约 6–30 秒）');
     fetch('/api/device/scan', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) { throw new Error(d.error || '扫描失败'); }
       var list = d.devices || [];
       var sel = $('devFound');
       sel.innerHTML = list.map(function (x) {
-        return '<option value="' + esc(x.address) + '">' + esc((x.name || '未命名设备') + ' · ' + x.address) + '</option>';
-      }).join('') || '<option value="">没有找到负鼠</option>';
+        return '<option value="' + esc(x.address) + '">' + esc((x.name || t('未命名设备')) + ' · ' + x.address) + '</option>';
+      }).join('') || '<option value="">' + esc(t('没有找到负鼠')) + '</option>';
       if (list.length) {
         $('devAddress').value = list[0].address;
-        $('devStatus').textContent = '找到 ' + list.length + ' 个设备，已填入第一个；可按“连接”';
+        $('devStatus').textContent = tf('找到 {n} 个设备，已填入第一个；可按“连接”', { n: list.length });
       } else {
-        $('devStatus').textContent = '没有找到负鼠：请确认设备已开机、靠近电脑，并在 Windows 蓝牙设置里配对过';
+        $('devStatus').textContent = t('没有找到负鼠：请确认设备已开机、靠近电脑，并在 Windows 蓝牙设置里配对过');
       }
     }).catch(function (e) {
-      $('devStatus').textContent = '扫描失败：' + e.message;
+      $('devStatus').textContent = t('扫描失败：') + e.message;
     });
   }
 
   function devUseFound() {
     var v = $('devFound').value;
-    if (!v) { $('devStatus').textContent = '请先扫描并选择一个设备'; return; }
+    if (!v) { $('devStatus').textContent = t('请先扫描并选择一个设备'); return; }
     $('devAddress').value = v;
-    $('devStatus').textContent = '已选择 ' + v + '，点击“连接”';
+    $('devStatus').textContent = tf('已选择 {name}，点击“连接”', { name: v });
   }
 
   function devConnect() {
     var address = $('devAddress').value.trim();
-    if (!address) { $('devStatus').textContent = '请先填蓝牙地址'; return; }
-    $('devStatus').textContent = '连接中…（请确认负鼠已开机、未被其它程序占用）';
+    if (!address) { $('devStatus').textContent = t('请先填蓝牙地址'); return; }
+    $('devStatus').textContent = t('连接中…（请确认负鼠已开机、未被其它程序占用）');
     fetch('/api/device/connect', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ address: address })
     }).then(function (r) { return r.json(); }).then(function (d) {
       renderDevice(d.device || {});
       try { localStorage.removeItem('dgreader.device'); } catch (e) { }
-      if (!d.ok) { $('devStatus').textContent = '连接失败：' + (d.error || ''); }
+      if (!d.ok) { $('devStatus').textContent = t('连接失败：') + (d.error || ''); }
     }).catch(function (e) {
-      $('devStatus').textContent = '连接失败：' + e.message;
+      $('devStatus').textContent = t('连接失败：') + e.message;
     });
   }
 
@@ -1307,19 +1353,19 @@
     var b = Number($('devB').value) || 0;
     var waveA = $('devWaveA').value;
     var waveB = $('devWaveB').value;
-    $('devStatus').textContent = '测试中：A=' + a + '(' + waveA + ')  B=' + b + '(' + waveB + ')';
+    $('devStatus').textContent = tf('测试中：A={a}（{waveA}）  B={b}（{waveB}）', { a: a, b: b, waveA: waveA, waveB: waveB });
     fetch('/api/device/test', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ a: a, b: b, waveA: waveA, waveB: waveB, seconds: 3 })
     }).then(function (r) { return r.json(); }).then(function (d) {
-      if (!d.ok) { $('devStatus').textContent = '测试失败：' + (d.error || ''); }
-    }).catch(function (e) { $('devStatus').textContent = '测试失败：' + e.message; });
+      if (!d.ok) { $('devStatus').textContent = t('测试失败：') + (d.error || ''); }
+    }).catch(function (e) { $('devStatus').textContent = t('测试失败：') + e.message; });
   }
 
   function devStop() {
     fetch('/api/device/stop', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
       if (d.device) { renderDevice(d.device); }
-      $('devStatus').textContent = '已停止';
+      $('devStatus').textContent = t('已停止');
     }).catch(function () { });
   }
 
@@ -1591,7 +1637,7 @@
       if (!d.ok) { throw new Error(d.error || '读取波形失败'); }
       waveList = d.waves || [];
       refreshWaveSelects();
-      $('waveExportSelect').innerHTML = waveList.map(function (w) {
+      $('waveExportSelect').innerHTML = waveList.filter(function (w) { return w.type !== 'special'; }).map(function (w) {
         return '<option value="' + esc(w.name) + '">' + esc(w.label || w.name) + (w.type === 'custom' ? '（自定义）' : '') + '</option>';
       }).join('');
       return waveList;
@@ -1886,7 +1932,7 @@
       buttons[i].onclick = function () {
         var tab = this.getAttribute('data-tab');
         for (var j = 0; j < buttons.length; j++) { buttons[j].classList.toggle('active', buttons[j] === this); }
-        ['read', 'rules', 'output', 'device', 'project', 'ocr'].forEach(function (t) {
+        ['read', 'rules', 'output', 'device', 'project', 'ocr', 'about'].forEach(function (t) {
           $('view-' + t).classList.toggle('active', t === tab);
         });
         if (tab === 'rules' && !profile) { loadProfile().catch(function (e) { setStatus($('saveStatus'), e.message, false); }); }
@@ -1902,6 +1948,8 @@
       return;
     }
     DGRMI18n.apply(this.value);
+    setConn(connState);
+    if (lastDevice) { renderDevice(lastDevice); }
   };
   $('btnTransClose').onclick = function () { $('transNotice').style.display = 'none'; };
   $('uiLang').value = DGRMI18n.current();

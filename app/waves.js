@@ -2,6 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+const RANDOM_WAVE = 'randomWave';
+const MAX_SECTIONS = 30;
+const MAX_POINTS = 4800; // 25ms/点 = 120 秒
 
 // 内置波形：t=毫秒，b=0-100
 const BUILTIN = {
@@ -49,7 +54,7 @@ class WaveLibrary {
             if (Array.isArray(d.waves)) {
                 this.custom = d.waves.filter((w) => w && w.name && Array.isArray(w.points)).map((w) => ({
                     name: String(w.name),
-                    points: w.points.map((v) => clamp(v, 0, 100)).slice(0, 4000),
+                    points: w.points.map((v) => clamp(v, 0, 100)).slice(0, MAX_POINTS),
                     header: w.header ? String(w.header) : ''
                 }));
             }
@@ -68,11 +73,28 @@ class WaveLibrary {
     list() {
         const builtins = Object.keys(BUILTIN).map((k) => ({ name: k, label: BUILTIN_LABELS[k] || k, type: 'builtin' }));
         const custom = this.custom.map((w) => ({ name: w.name, label: w.name, type: 'custom', points: w.points.length }));
-        return builtins.concat(custom);
+        return [{ name: RANDOM_WAVE, label: '随机波形', type: 'special' }].concat(builtins, custom);
+    }
+
+    isRandom(name) {
+        return String(name || '') === RANDOM_WAVE || String(name || '') === '随机波形';
+    }
+
+    pickRandomName() {
+        const names = Object.keys(BUILTIN).concat(this.custom.map((w) => w.name))
+            .filter((n) => n && !this.isRandom(n));
+        if (!names.length) { return 'const'; }
+        // 独立均匀随机：每次都可能抽到同一个波形，不人为压制重复
+        return names[crypto.randomInt(names.length)];
+    }
+
+    pickIfRandom(name) {
+        return this.isRandom(name) ? this.pickRandomName() : name;
     }
 
     normalize(name) {
         if (!name) { return 'const'; }
+        if (this.isRandom(name)) { return RANDOM_WAVE; }
         if (BUILTIN[name]) { return name; }
         if (this.custom.some((w) => w.name === name)) { return name; }
         return ALIASES[name] || 'const';
@@ -90,8 +112,9 @@ class WaveLibrary {
     addCustom(name, points, header) {
         const n = String(name || '').trim();
         if (!n) { throw new Error('波形名不能为空'); }
-        const pts = (points || []).map((v) => clamp(v, 0, 100)).slice(0, 4000);
+        const pts = (points || []).map((v) => clamp(v, 0, 100));
         if (pts.length < 2) { throw new Error('波形至少需要 2 个点'); }
+        if (pts.length > MAX_POINTS) { throw new Error('波形超过 ' + MAX_POINTS + ' 个点'); }
         this.custom = this.custom.filter((w) => w.name !== n);
         this.custom.push({ name: n, points: pts, header: String(header || '') });
         this.save();
@@ -127,7 +150,6 @@ class WaveLibrary {
             const w = this.custom.filter((x) => x.name === n)[0];
             if (w) {
                 points = w.points;
-                if (w.header) { header = w.header; }
             }
         }
         if (points.length < 2) { points = [50, 50]; }
@@ -148,16 +170,51 @@ function clamp(v, lo, hi) {
 function parseDgPulse(text, name) {
     const raw = String(text || '').trim();
     const body = raw.slice(raw.indexOf(':') + 1);
-    const slash = body.indexOf('/');
-    const header = slash >= 0 ? body.slice(0, slash) : '0,1,8=0,20,0,1,1';
-    const seq = slash >= 0 ? body.slice(slash + 1) : body;
-    const points = [];
-    for (const token of seq.split(',')) {
-        const m = /^(-?\d+)(?:-(\d+))?$/.exec(token.trim());
-        if (!m) { continue; }
-        points.push(clamp(m[1], 0, 100));
+    const parts = body.split('+section+');
+    if (parts.length > MAX_SECTIONS) {
+        throw new Error('波形有 ' + parts.length + ' 段，超过上限 ' + MAX_SECTIONS + ' 段');
     }
+
+    let header = '0,1,8=0,20,0,1,1';
+    const rawPoints = [];
+    const external = parts.length > 1;
+    let hasDecimal = false;
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const slash = part.indexOf('/');
+        if (slash < 0) { continue; }
+        if (i === 0) { header = part.slice(0, slash).trim() || header; }
+        if (header !== '0,1,8=0,20,0,1,1') { /* external header */ }
+        const seq = part.slice(slash + 1);
+        for (const token of seq.split(',')) {
+            // 支持 100 / 100.00，也支持 100-1 / 100.00-0 这种强度-参数
+            const m = /^(-?\d+(?:\.\d+)?)(?:-(\d+(?:\.\d+)?))?$/.exec(token.trim());
+            if (!m) { continue; }
+            if (m[1].indexOf('.') >= 0) { hasDecimal = true; }
+            rawPoints.push(clamp(parseFloat(m[1]), 0, 100));
+        }
+    }
+
+    // 官方 App 的 .pulse 以 0.1 秒为一个点；DGReader 内部以 25ms 为一个点。
+    const isExternal = external || hasDecimal || header !== '0,1,8=0,20,0,1,1';
+    const points = [];
+    for (const v of rawPoints) {
+        if (isExternal) { points.push(v, v, v, v); }
+        else { points.push(v); }
+    }
+
+    // 官方格式头部第一个字段是休息时间（0.1 秒为单位）
+    if (isExternal) {
+        const restUnits = parseInt(String(header).split(',')[0], 10);
+        if (restUnits > 0) {
+            for (let i = 0; i < restUnits * 4; i++) { points.push(0); }
+        }
+    }
+
     if (points.length < 2) { throw new Error('Dungeonlab+pulse 里没有足够的波形数据'); }
+    if (points.length > MAX_POINTS) {
+        throw new Error('波形有 ' + points.length + ' 个点，超过上限 ' + MAX_POINTS + ' 个点');
+    }
     return { name: name || '导入波形', points: points, header: header };
 }
 
