@@ -259,20 +259,49 @@
     }
 
     // --- Ticker -----------------------------------------------------------
+    var lastTickerText = '';
+    var lastTickerAt = 0;
+    function emitTicker(text, source) {
+        if (typeof text !== 'string' || text.length === 0) { return; }
+        var now = Date.now();
+        if (text === lastTickerText && now - lastTickerAt < 80) { return; }
+        lastTickerText = text;
+        lastTickerAt = now;
+        var tickerVars = [];
+        var seenVars = {};
+        var re = /\\[vV]\[(\d+)\]/g;
+        var m;
+        while ((m = re.exec(text)) !== null) {
+            var vid = Number(m[1]);
+            if (seenVars[vid]) { continue; }
+            seenVars[vid] = true;
+            tickerVars.push({ id: vid, name: variableName(vid), value: $gameVariables.value(vid) });
+        }
+        // 保留原文本给规则/调试，同时给 UI 一份已展开变量的文本。
+        // RPG Maker 的变量可以存字符串（例如 \v[458] 可能是 NPC 名字）。
+        var displayText = text;
+        for (var pass = 0; pass < 20; pass++) {
+            var previousText = displayText;
+            displayText = displayText.replace(/\\[vV]\[(\d+)\]/g, function (_, id) {
+                try { return String($gameVariables.value(Number(id))); } catch (e) { return '0'; }
+            });
+            if (displayText === previousText) { break; }
+        }
+        push({ t: 'ticker', scene: sceneName(), plus: true, source: source || '', text: text, displayText: displayText, tickerVars: tickerVars });
+    }
     if (LOG_TICKER && typeof TickerManager !== 'undefined' && TickerManager.show) {
         var _tickerShow = TickerManager.show;
         TickerManager.show = function (text, needPlus) {
-            try {
-                if (typeof text === 'string' && text.length > 0) {
-                    push({
-                        t: 'ticker',
-                        scene: sceneName(),
-                        plus: needPlus === undefined ? true : !!needPlus,
-                        text: text
-                    });
-                }
-            } catch (e) { /* ignore */ }
+            try { emitTicker(text, 'manager'); } catch (e) { /* ignore */ }
             return _tickerShow.apply(this, arguments);
+        };
+    }
+    // 部分战斗/剧情插件直接调用 TickerContainer.show，绕过 TickerManager。
+    if (LOG_TICKER && typeof TickerContainer !== 'undefined' && TickerContainer.prototype && TickerContainer.prototype.show) {
+        var _tickerContainerShow = TickerContainer.prototype.show;
+        TickerContainer.prototype.show = function (text, needPlus) {
+            try { emitTicker(text, 'container'); } catch (e) { /* ignore */ }
+            return _tickerContainerShow.apply(this, arguments);
         };
     }
 
@@ -291,6 +320,21 @@
         };
     }
 
+    // Ticker.js 在 drawLineText 里把战斗日志转成左上角播报；直接补抓这一层，
+    // 避免某些战斗插件绕过 addText / TickerManager 时漏掉角色行动描述。
+    if (LOG_TICKER && typeof Window_BattleLog !== 'undefined' && Window_BattleLog.prototype.drawLineText) {
+        var _drawLineText = Window_BattleLog.prototype.drawLineText;
+        Window_BattleLog.prototype.drawLineText = function (index) {
+            try {
+                var line = this._lines && this._lines[index];
+                if (typeof line === 'string' && line.replace(/\s/g, '').length > 0) {
+                    emitTicker(line, 'battlelog');
+                }
+            } catch (e) { /* ignore */ }
+            return _drawLineText.apply(this, arguments);
+        };
+    }
+
     // --- 战斗播报的语义层：TickerBTM / TickerBTMFL / TickerSys -------------
     // 只 hook TickerManager.show 只能拿到“渲染后的文字”；这里拿到的是
     // 消息 ID（如 AttackEstrus / CrisisL3 / TrapActive），比关键词更准。
@@ -299,22 +343,42 @@
         Game_Interpreter.prototype.pluginCommand = function (command, args) {
             try {
                 args = args || [];
-                if (command === 'TickerBTM') {
+                // varIDforPlugin 在外层把 TickerBTM_varID 变成 TickerBTM；
+                // DGRMHook 比它更晚加载，先自己解析一次，保证语义元数据完整。
+                var metaCommand = String(command || '');
+                var metaArgs = args.slice();
+                var varIdMatch = metaCommand.match(/_varID(\[[0-9]+(?:,[0-9]+)*\])?$/);
+                if (varIdMatch) {
+                    metaCommand = metaCommand.slice(0, varIdMatch.index);
+                    var indexes = [];
+                    if (varIdMatch[1]) {
+                        indexes = varIdMatch[1].slice(1, -1).split(',').map(function (x) { return Number(x) - 1; });
+                    } else {
+                        for (var vi = 0; vi < metaArgs.length; vi++) { indexes.push(vi); }
+                    }
+                    for (var vj = 0; vj < indexes.length; vj++) {
+                        var ai = indexes[vj];
+                        if (ai >= 0 && ai < metaArgs.length) {
+                            metaArgs[ai] = String($gameVariables.value(Number(metaArgs[ai])));
+                        }
+                    }
+                }
+                if (metaCommand === 'TickerBTM') {
                     push({
                         t: 'ticker_meta', kind: 'btm',
-                        id: String(args[0] || ''), pattern: String(args[1] || ''),
-                        actorId: Number(args[2] || 0), scene: sceneName()
+                        id: String(metaArgs[0] || ''), pattern: String(metaArgs[1] || ''),
+                        actorId: Number(metaArgs[2] || 0), scene: sceneName()
                     });
-                } else if (command === 'TickerBTMFL') {
+                } else if (metaCommand === 'TickerBTMFL') {
                     push({
                         t: 'ticker_meta', kind: 'btmfl',
-                        id: String(args[0] || ''), pattern: String(args[1] || ''),
+                        id: String(metaArgs[0] || ''), pattern: String(metaArgs[1] || ''),
                         scene: sceneName()
                     });
-                } else if (command === 'TickerSys') {
+                } else if (metaCommand === 'TickerSys') {
                     push({
                         t: 'ticker_meta', kind: 'sys',
-                        id: String(args[0] || ''), scene: sceneName()
+                        id: String(metaArgs[0] || ''), scene: sceneName()
                     });
                 }
             } catch (e) { /* ignore */ }
@@ -399,14 +463,18 @@
     function snapshot() {
         try {
             var vars = {};
+            var varNames = {};
             for (var i = 0; i < WATCH_VARS.length; i++) {
                 var id = WATCH_VARS[i];
                 vars[id] = $gameVariables.value(id);
+                varNames[id] = variableName(id);
             }
             var sws = {};
+            var switchNames = {};
             for (var j = 0; j < WATCH_SWITCHES.length; j++) {
                 var sid = WATCH_SWITCHES[j];
                 sws[sid] = $gameSwitches.value(sid);
+                switchNames[sid] = switchName(sid);
             }
             var actor = null;
             try {
@@ -428,7 +496,9 @@
                 mapId: window.$gameMap ? $gameMap.mapId() : 0,
                 map: mapName(window.$gameMap ? $gameMap.mapId() : 0),
                 vars: vars,
+                varNames: varNames,
                 switches: sws,
+                switchNames: switchNames,
                 actor: actor,
                 party: (function () {
                     try {

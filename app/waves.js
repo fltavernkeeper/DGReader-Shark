@@ -36,7 +36,18 @@ const ALIASES = {
     '低': 'sine', '中': 'sine', '强': 'const', '脉冲': 'pulse', '持续': 'const',
     '呼吸': 'sine', '潮汐': 'tide', '心跳': 'heart', '渐强': 'rampUp',
     '渐弱': 'rampDown', '锯齿': 'saw', '随机': 'random', '按摩': 'massage',
-    '连击': 'burst', '波浪': 'wave', '敲击': 'knock', '蠕动': 'crawl'
+    '连击': 'burst', '波浪': 'wave', '敲击': 'knock', '蠕动': 'crawl',
+    // 英文界面标签也能直接用于序列输入；导入波形仍优先按原名精确匹配。
+    'constant': 'const', 'continuous': 'const', 'breathing': 'sine',
+    'breath': 'sine', 'tide': 'tide', 'heartbeat': 'heart', 'pulse': 'pulse',
+    'ramp up': 'rampUp', 'ramp down': 'rampDown', 'saw': 'saw',
+    'random': 'random', 'massage': 'massage', 'burst': 'burst',
+    'wave': 'wave', 'knock': 'knock', 'crawl': 'crawl',
+    // 日本語 UI のラベル
+    '連続': 'const', '鼓動': 'heart', 'パルス': 'pulse',
+    '漸強': 'rampUp', '漸弱': 'rampDown', 'ノコギリ': 'saw',
+    'ランダム': 'random', 'マッサージ': 'massage', '連打': 'burst',
+    '波': 'wave', '打撃': 'knock', 'うねり': 'crawl'
 };
 
 class WaveLibrary {
@@ -77,7 +88,9 @@ class WaveLibrary {
     }
 
     isRandom(name) {
-        return String(name || '') === RANDOM_WAVE || String(name || '') === '随机波形';
+        const n = String(name || '').trim().toLowerCase();
+        return n === RANDOM_WAVE.toLowerCase() || n === '随机波形' || n === 'ランダム波形' ||
+            n === 'random waveform' || n === 'random wave';
     }
 
     pickRandomName() {
@@ -93,11 +106,19 @@ class WaveLibrary {
     }
 
     normalize(name) {
-        if (!name) { return 'const'; }
-        if (this.isRandom(name)) { return RANDOM_WAVE; }
-        if (BUILTIN[name]) { return name; }
-        if (this.custom.some((w) => w.name === name)) { return name; }
-        return ALIASES[name] || 'const';
+        const raw = String(name === undefined || name === null ? '' : name).trim();
+        if (!raw) { return 'const'; }
+        if (this.isRandom(raw)) { return RANDOM_WAVE; }
+        if (BUILTIN[raw]) { return raw; }
+        if (this.custom.some((w) => w.name === raw)) { return raw; }
+        const lower = raw.toLowerCase();
+        const lowerAliases = {
+            sine: 'sine', const: 'const', tide: 'tide', heart: 'heart',
+            pulse: 'pulse', rampup: 'rampUp', rampdown: 'rampDown', saw: 'saw',
+            random: 'random', massage: 'massage', burst: 'burst', wave: 'wave',
+            knock: 'knock', crawl: 'crawl'
+        };
+        return ALIASES[raw] || ALIASES[lower] || lowerAliases[lower] || 'const';
     }
 
     resolve(name) {

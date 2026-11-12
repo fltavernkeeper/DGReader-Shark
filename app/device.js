@@ -49,6 +49,8 @@ class OpossumDevice {
         this.lastError = '';
         this.waveTimer = null;
         this.channels = { A: newChannel(), B: newChannel() };
+        this.sequences = { A: null, B: null };
+        this.sequenceToken = { A: 0, B: 0 };
     }
 
     log(msg) { console.log(`[设备] ${msg}`); }
@@ -220,9 +222,57 @@ class OpossumDevice {
         this.setStrength(this.channels.A.strength, this.channels.B.strength).catch(() => { });
     }
 
+    stopSequence(ch) {
+        const token = ++this.sequenceToken[ch];
+        if (this.sequences[ch]) { clearTimeout(this.sequences[ch]); this.sequences[ch] = null; }
+        return token;
+    }
+
+    playSequence(ch, steps, owner, options) {
+        const c = this.channels[ch];
+        if (!c || !Array.isArray(steps) || !steps.length) { return; }
+        const opts = options || {};
+        if (this.sequences[ch]) {
+            if (opts.overlap === 'skip') { return; }
+            this.stopSequence(ch);
+        }
+        const token = this.stopSequence(ch);
+        const loop = Math.max(0, Number(opts.loop) || 0);
+        let index = 0;
+        let loops = 0;
+        const run = () => {
+            if (token !== this.sequenceToken[ch]) { return; }
+            if (index >= steps.length) {
+                if (loop === 0 || loops < loop - 1) {
+                    index = 0;
+                    loops++;
+                } else {
+                    this.sequences[ch] = null;
+                    this.stopChannel(ch);
+                    return;
+                }
+            }
+            const step = steps[index];
+            const seconds = Math.max(0.1, Number(step.seconds) || 0.1);
+            this.startChannel(ch, {
+                strength: clamp(step.strength, 0, 200),
+                wave: step.wave || 'const',
+                seconds: 0
+            }, owner);
+            index++;
+            this.sequences[ch] = setTimeout(run, seconds * 1000);
+        };
+        run();
+    }
+
     stopChannel(ch) {
         const c = this.channels[ch];
         if (!c) { return; }
+        if (this.sequences[ch]) {
+            clearTimeout(this.sequences[ch]);
+            this.sequences[ch] = null;
+            this.sequenceToken[ch]++;
+        }
         if (c.timer) { clearTimeout(c.timer); c.timer = null; }
         c.active = false;
         c.strength = 0;
@@ -246,7 +296,11 @@ class OpossumDevice {
             return;
         }
         const strength = a.strength !== undefined ? clamp(a.strength, 0, 200) : this.channels[ch].strength;
-        if (strength <= 0) { this.stopChannel(ch); return; }
+        if (strength <= 0 && !Array.isArray(a.steps)) { this.stopChannel(ch); return; }
+        if (Array.isArray(a.steps) && a.steps.length) {
+            this.playSequence(ch, a.steps, owner, { loop: a.loop, overlap: a.overlap });
+            return;
+        }
         this.startChannel(ch, {
             strength: strength,
             wave: a.wave || a.pulse,
@@ -269,11 +323,16 @@ class OpossumDevice {
         const applied = [];
         for (const a of list) {
             if (!a || !a.channel) { continue; }
+            const ch = String(a.channel).toUpperCase();
+            if (!this.channels[ch]) { continue; }
+            if (Array.isArray(a.steps) && a.steps.length) {
+                this.playSequence(ch, a.steps, 'test', { loop: a.loop, overlap: a.overlap });
+                applied.push({ channel: ch, steps: a.steps, loop: a.loop, seconds: fallbackSeconds });
+                continue;
+            }
             const strength = clamp(a.strength, 0, 200);
             if (strength <= 0) { continue; }
             const seconds = Number(a.seconds) > 0 ? Number(a.seconds) : (fallbackSeconds || 3);
-            const ch = String(a.channel).toUpperCase();
-            if (!this.channels[ch]) { continue; }
             const pickedWave = this.waves.pickIfRandom(a.wave || a.pulse);
             this.startChannel(ch, { strength: strength, wave: pickedWave, seconds: seconds }, 'test');
             applied.push({ channel: ch, strength: strength, wave: this.waves.normalize(pickedWave), seconds: seconds });

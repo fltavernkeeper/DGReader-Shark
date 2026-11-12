@@ -61,7 +61,7 @@
   .hint{color:var(--muted);font-size:12px;padding:8px 14px;border-top:1px solid var(--line);background:var(--panel2)}
   footer{color:#5b6b7f;font-size:12px;text-align:center;padding:0 20px 24px}
   footer .ver{display:block;margin-top:6px;color:#7d8da3;font-size:11px}
-  code{background:#18222e;padding:1px 5px;border-radius:4px}
+  code{background:#18222e;padding:1px 5px;border-radius:4px;font-family:"Cascadia Mono",Consolas,"Courier New",monospace}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
   input,select,textarea{background:#0a0e13;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font:13px/1.4 "Cascadia Mono",Consolas,monospace}
@@ -126,7 +126,15 @@
   <div class="grid">
     <div class="col">
       <section class="panel">
-        <div class="hd"><b>对话框事件文本</b><span>Game_Message / Window_Message</span></div>
+        <div class="hd"><b>对话框事件文本</b><span>Game_Message / Window_Message</span>
+          <select id="msgLogCount" style="margin-left:auto;width:auto;min-width:70px" title="显示条数">
+            <option value="1" selected>1 条</option>
+            <option value="2">2 条</option>
+            <option value="3">3 条</option>
+            <option value="4">4 条</option>
+            <option value="5">5 条</option>
+          </select>
+        </div>
         <div class="bd">
           <div class="meta" id="msgMeta"></div>
           <div class="text dim" id="msgText">等待对话……</div>
@@ -136,7 +144,15 @@
       </section>
 
       <section class="panel">
-        <div class="hd"><b>战斗左上角播报</b><span>TickerManager / TickerBTM</span></div>
+        <div class="hd"><b>战斗播报</b><span>TickerManager / TickerBTM</span>
+          <select id="tickerLogCount" style="margin-left:auto;width:auto;min-width:70px" title="显示条数">
+            <option value="1">1 条</option>
+            <option value="2" selected>2 条</option>
+            <option value="3">3 条</option>
+            <option value="4">4 条</option>
+            <option value="5">5 条</option>
+          </select>
+        </div>
         <div class="bd">
           <div class="meta" id="tickMeta"></div>
           <div class="text dim" id="tickText">等待战斗播报……</div>
@@ -146,7 +162,15 @@
       </section>
 
       <section class="panel">
-        <div class="hd"><b>战斗日志（左上角）</b><span>Window_BattleLog / 敌人行动 / 伤害 / 状态</span></div>
+        <div class="hd"><b>战斗日志（左上角）</b><span>Window_BattleLog / 敌人行动 / 伤害 / 状态</span>
+          <select id="blLogCount" style="margin-left:auto;width:auto;min-width:70px" title="显示条数">
+            <option value="1">1 条</option>
+            <option value="2" selected>2 条</option>
+            <option value="3">3 条</option>
+            <option value="4">4 条</option>
+            <option value="5">5 条</option>
+          </select>
+        </div>
         <div class="bd">
           <div class="text dim" id="blText">等待战斗日志……</div>
           <div class="stamp" id="blTime"></div>
@@ -222,7 +246,6 @@
                 <option value="unity">Unity 文本</option>
                 <option value="tickerId">播报 ID</option>
                 <option value="var">变量数值</option>
-                <option value="switch">开关状态</option>
                 <option value="expression">高级表达式</option>
               </select>
             </label>
@@ -232,20 +255,48 @@
             <label class="f" style="flex:1" id="valueWrap">值 / 阈值
               <input id="rValue" placeholder="关键词、正则、图标编号或数值" />
             </label>
-            <label class="f" style="width:160px;display:none" id="varWrap">变量
-              <select id="rVar"></select>
-            </label>
-            <label class="f" style="width:160px;display:none" id="switchWrap">开关
-              <select id="rSwitch"></select>
-            </label>
+            <div class="f" style="flex:1;display:none" id="varWrap">
+              <div class="hd2">变量</div>
+              <div class="row">
+                <select id="rVar" style="flex:1"></select>
+                <button class="btn" id="btnVarRead" type="button">开始读取变量</button>
+                <button class="btn" id="btnVarBroadcast" type="button">当前播报变量</button>
+                <button class="btn danger" id="btnVarClear" type="button">清空变量记录</button>
+              </div>
+              <div class="row" style="margin-top:6px">
+                <input id="rVarName" placeholder="手动名称，例如 estrus" />
+                <input id="rVarId" type="number" placeholder="变量 ID，例如 1027" />
+              </div>
+              <div class="note" id="varCurrent">未选择变量</div>
+            </div>
           </div>
           <label class="f" style="margin-top:8px;display:none" id="exprWrap">表达式
-            <textarea id="rExpr" placeholder="例如：swimming && estrus >= 30"></textarea>
+            <textarea id="rExpr" placeholder="例如：mapId === 63 &amp;&amp; v(1027) &gt;= 80"></textarea>
           </label>
+          <div class="row" style="margin-top:8px">
+            <label class="f" style="width:220px">触发方式
+              <select id="rTrigMode">
+                <option value="hold">条件成立时触发一次</option>
+                <option value="repeat">条件保持时重复触发</option>
+              </select>
+            </label>
+            <label class="f" style="width:160px;display:none" id="repeatWrap">重复间隔（秒）
+              <input id="rRepeatSeconds" type="number" min="1" step="1" value="5" />
+            </label>
+          </div>
         </div>
 
         <div class="panel2" style="margin-top:12px">
           <div class="hd2">输出（A/B 可同时启用）</div>
+          <div class="row">
+            <label class="f" style="width:180px">输出方式
+              <select id="rOutMode">
+                <option value="single">单波形</option>
+                <option value="sequence">波形序列</option>
+              </select>
+            </label>
+          </div>
+          <div id="singleOut">
           <div class="row">
             <label class="row" style="width:100px"><input type="checkbox" id="rAOn" checked /> 通道 A</label>
             <label class="f" style="width:130px">波形
@@ -259,6 +310,7 @@
                 <option value="rampDown">渐弱</option>
                 <option value="saw">锯齿</option>
                 <option value="random">随机</option>
+                <option value="randomWave">随机波形</option>
                 <option value="massage">按摩</option>
               <option value="burst">连击</option>
               <option value="wave">波浪</option>
@@ -282,6 +334,7 @@
                 <option value="rampDown">渐弱</option>
                 <option value="saw">锯齿</option>
                 <option value="random">随机</option>
+                <option value="randomWave">随机波形</option>
                 <option value="massage">按摩</option>
               <option value="burst">连击</option>
               <option value="wave">波浪</option>
@@ -292,6 +345,25 @@
             <label class="f" style="width:100px">强度 0-200<input id="rBStrength" type="number" min="0" max="200" value="40" /></label>
             <label class="f" style="width:90px">秒数<input id="rBSeconds" type="number" min="0" step="0.5" placeholder="3" /></label>
           </div>
+          </div>
+          <div id="seqOut" style="display:none">
+            <div class="row" style="margin-top:8px">
+              <label class="f" style="width:160px">序列循环次数<input id="rSeqLoop" type="number" min="0" step="1" value="1" /></label>
+              <label class="f" style="width:180px">上一套未结束时
+                <select id="rSeqOverlap">
+                  <option value="skip">跳过本次</option>
+                  <option value="restart">打断重来</option>
+                </select>
+              </label>
+            </div>
+            <label class="f" style="margin-top:8px">通道 A 序列（每行：波形,强度,秒数）
+              <textarea id="rASeq" placeholder="呼吸,30,2&#10;脉冲,60,1&#10;持续,20,3"></textarea>
+            </label>
+            <label class="f" style="margin-top:8px">通道 B 序列（每行：波形,强度,秒数）
+              <textarea id="rBSeq" placeholder="潮汐,40,3"></textarea>
+            </label>
+            <div class="note">内置波形可用中文名、英文名或内部名（如 sine）；导入波形需填写波形页中的完整名称。</div>
+          </div>
         </div>
 
         <div class="row" style="margin-top:12px">
@@ -299,33 +371,7 @@
           <button class="btn" id="btnCancel">清空表单</button>
           <button class="btn danger" id="btnDelete" style="display:none">删除</button>
         </div>
-        <div class="note" style="margin-top:10px" translate="no">
-          条件示例：<br>
-          · 对话框文本 <b>包含</b> “游泳” → A 通道 35 / 呼吸 / 3 秒<br>
-          · 战斗播报 <b>正则</b> “今天天气怎么样|你吃了吗” → A 70 / 持续 / 3 秒<br>
-          · 变量 <b>≥</b> 80（选 estrus）→ B 50 / 潮汐 / 0 秒（持续到条件结束）<br><br>
-
-          <b>“和”与“或”怎么写：</b><br>
-          · <b>或</b>（任意一个满足就触发）：正则里用 <code>|</code>，
-            例如 <code>今天天气怎么样|你吃了吗</code> 表示出现“今天天气怎么样”<b>或</b>“你吃了吗”都触发；
-            高级表达式里也可以用 <code>||</code>。<br>
-            · <code>||</code> 可以同时引用不同来源：左边是对话框文本，右边是战斗播报 ID，任意一个成立就触发。<br>
-          · <b>和</b>（必须同时满足）：请把来源切到“高级表达式”，用 <code>&amp;&amp;</code>，
-            例如 <code>mapId === 63 &amp;&amp; swimming</code>、
-            <code>estrus &gt;= 80 &amp;&amp; lust &gt;= 50</code>。<br>
-          · 简单条件一次只能判断一个来源；要“和”就必须用高级表达式。<br>
-          · “包含”是纯文本包含；“正则”里的 <code>|</code> 才是“或”。
-            要匹配真正的竖线字符，写成 <code>\|</code>。<br><br>
-
-          <b>文字检测来源：</b><br>
-          · 对话框文本：角色对话内容（含角色名）<br>
-          · 战斗播报：战斗左上角 Ticker 文本<br>
-          · 战斗日志：Window_BattleLog（敌人行动/伤害/状态）<br>
-          · 播报 ID：语义 ID（如 TrapActive），比关键词更稳定<br>
-          · OCR 文本：仅 OCR 模式可用，只支持“包含 / 正则”<br><br>
-          注：使用浏览器一键翻译页面后，页面示例中的部分符号（如 <code>|</code>、<code>\</code>、<code>&amp;&amp;</code>）
-          可能丢失或被改写；刷新页面即可恢复。
-        </div>
+        <div class="note" id="conditionExamples" style="margin-top:10px" translate="no"></div>
       </div>
     </section>
   </div>
@@ -520,7 +566,7 @@
       <section class="panel">
           <div class="hd"><b>关于</b><span>DGReader 鲨鱼版</span></div>
           <div class="bd note">
-          当前版本：<span id="aboutVersion">v1.06</span><br>
+          当前版本：<span id="aboutVersion">v1.07</span><br>
           最新 Release：<a href="https://github.com/fltavernkeeper/DGReader-Shark/releases" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/releases</a><br>
           Discussions：<a href="https://github.com/fltavernkeeper/DGReader-Shark/discussions" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/discussions</a><br>
           <span class="dim">更新不定期。<br>使用问题、兼容性讨论、经验交流、功能建议、波形与预设，都可以在 Discussions 页面讨论。</span>
@@ -533,7 +579,8 @@
           1. 打开最新 Release 页面。<br>
           2. 下载最新的 DGReader Shark vX.XX.zip。<br>
           3. 解压到新目录，不要直接覆盖旧目录。<br>
-          4. 确认新版可用后，再删除旧版。
+          4. 使用新版前先在旧版中移除插件。<br>
+          5. 确认新版可用后，再删除旧版。
         </div>
       </section>
     </div>
@@ -580,6 +627,7 @@
               <option value="rampDown">渐弱</option>
               <option value="saw">锯齿</option>
               <option value="random">随机</option>
+                <option value="randomWave">随机波形</option>
               <option value="massage">按摩</option>
               <option value="burst">连击</option>
               <option value="wave">波浪</option>
@@ -604,6 +652,7 @@
               <option value="rampDown">渐弱</option>
               <option value="saw">锯齿</option>
               <option value="random">随机</option>
+                <option value="randomWave">随机波形</option>
               <option value="massage">按摩</option>
               <option value="burst">连击</option>
               <option value="wave">波浪</option>
@@ -679,14 +728,14 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.06 By FL</span></footer>
+<footer><span class="ver">v1.07 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var state = { vars: {}, lastMeta: null, msgRaw: '', tickRaw: '', battlelogRaw: '', blLines: [], actors: [], party: [], ruleTotal: 0, device: null };
+  var state = { vars: {}, switches: {}, tickLines: [], msgLines: [], lastMeta: null, msgRaw: '', tickRaw: '', tickRawOriginal: '', battlelogRaw: '', blLines: [], actors: [], party: [], ruleTotal: 0, device: null };
   var profile = null;
   var editingId = null;
   var output = { mode: 'display', pipe: '', template: '' };
@@ -768,7 +817,21 @@
     return s;
   }
 
+  function expandRichVars(text) {
+    var value = String(text || '');
+    for (var pass = 0; pass < 20; pass++) {
+      var previous = value;
+      value = value.replace(/\\[vV]\[(\d+)\]/g, function (_, id) {
+        var n = Number(id);
+        return String(state.vars[n] !== undefined ? state.vars[n] : 0);
+      });
+      if (value === previous) { break; }
+    }
+    return value;
+  }
+
   function renderRich(el, raw) {
+    raw = expandRichVars(raw);
     el.innerHTML = '';
     if (!raw) { return; }
     var frag = document.createDocumentFragment();
@@ -789,9 +852,14 @@
       var ch = raw[i];
       if (ch === '\\') {
         var rest = raw.slice(i);
-        var m = /^\\([A-Za-z])\[(\d+)\]/.exec(rest);
+        var m = /^\\([A-Za-z])\[((?:\\[vV]\[\d+\])|\d+)\]/.exec(rest);
         if (m) {
-          var cmd = m[1].toUpperCase(), n = parseInt(m[2], 10);
+          var cmd = m[1].toUpperCase();
+          var n = parseInt(m[2], 10);
+          var nestedVar = /^\\[vV]\[(\d+)\]$/.exec(m[2]);
+          if (nestedVar) {
+            n = Number(state.vars[Number(nestedVar[1])] || 0);
+          }
           if (cmd === 'C') { flush(); color = n; i += m[0].length; continue; }
           if (cmd === 'I') { flush(); frag.appendChild(iconSpan(n)); i += m[0].length; continue; }
           if (cmd === 'V') { flush(); buf += String(state.vars[n] !== undefined ? state.vars[n] : 0); i += m[0].length; continue; }
@@ -818,17 +886,130 @@
 
   function rawVisible() { return $('rawToggle').checked; }
 
+  function renderConditionExamples() {
+    var lang = window.DGRMI18n && DGRMI18n.current ? DGRMI18n.current() : 'zh';
+    var html = '';
+    if (lang === 'ja') {
+      html = '条件例：<br>' +
+        '・ダイアログ <b>含む</b> 「游泳」 → A 35 / 呼吸 / 3 秒<br>' +
+        '・戦闘ティッカー <b>正規表現</b> 「今天天气怎么样|你吃了吗」 → A 70 / 持続 / 3 秒<br>' +
+        '・変数 <b>≥</b> 80（estrus）→ B 50 / 潮汐 / 0 秒（条件が終わるまで持続）<br><br>' +
+        '<b>「かつ」と「または」：</b><br>' +
+        '・<b>または</b>：正規表現で <code>|</code> を使います。例：<code>今天天气怎么样|你吃了吗</code> はどちらかで発火。上級式では <code>||</code> も使えます。<br>' +
+        '・<code>||</code> は異なるソースを同時に参照できます：左がダイアログ、右が戦闘ティッカーID。どちらか成立で発火。<br>' +
+        '・<b>かつ</b>：ソースを「上級式」に切り替え、<code>&amp;&amp;</code> を使います。例：<code>mapId === 63 &amp;&amp; v(1027) &gt;= 80</code>、<code>estrus &gt;= 80 &amp;&amp; lust &gt;= 50</code>。<br>' +
+        '・単純条件は一度に1ソースだけです。「かつ」は上級式が必要です。<br>' +
+        '・「含む」は純粋な文字列検索です。「正規表現」の <code>|</code> が「または」です。<br><br>' +
+        '<b>上級式の使い方：</b><br>' +
+        '・テキスト：<code>/文字/.test(msg)</code> ダイアログ、<code>/文字/.test(ticker)</code> 左上ティッカー、<code>/文字/.test(battlelog)</code> 戦闘ログ<br>' +
+        '・変数：<code>v(1027) &gt;= 80</code>（1027 は変数ID、80 はしきい値）<br>' +
+        '・マップ：<code>mapId === 63</code><br>' +
+        '・アイコン/色：<code>tickerIcons.includes(906)</code>、<code>tickerColors.includes(27)</code>、<code>msgIcons.includes(12)</code>、<code>msgColors.includes(4)</code><br>' +
+        '・キャラクター：<code>actor.hp &lt; 30</code><br>' +
+        '・組み合わせ：<code>&amp;&amp;</code> は「かつ」、<code>||</code> は「または」。混在時は括弧を推奨。<br><br>' +
+        '<b>テキスト検出ソース：</b><br>' +
+        '・ダイアログ：キャラクターの会話（名前を含む）<br>' +
+        '・戦闘ティッカー：画面左上の Ticker テキスト<br>' +
+        '・戦闘ログ：Window_BattleLog（敵行動/ダメージ/状態）<br>' +
+        '・ティッカーID：意味ID（例：TrapActive）。キーワードより安定<br>' +
+        '・OCR：OCRモードのみ。「含む / 正規表現」に対応<br>' +
+        '・Unityテキスト：Unity製ゲームのダイアログ内容<br><br>' +
+        '注：<code>|</code>、<code>\\</code>、<code>&amp;&amp;</code>、<code>||</code> などの記号は翻訳されません。';
+    } else if (lang === 'en') {
+      html = 'Examples:<br>' +
+        '· Dialogue <b>contains</b> “游泳” → A 35 / Breathing / 3s<br>' +
+        '· Battle ticker <b>regex</b> “今天天气怎么样|你吃了吗” → A 70 / Constant / 3s<br>' +
+        '· Variable <b>≥</b> 80 (estrus) → B 50 / Tide / 0s (until condition ends)<br><br>' +
+        '<b>AND / OR:</b><br>' +
+        '· <b>OR</b>: use <code>|</code> in regex. Example: <code>今天天气怎么样|你吃了吗</code> fires on either. Expressions also support <code>||</code>.<br>' +
+        '· <code>||</code> can combine sources: dialogue on the left, ticker ID on the right; either one fires.<br>' +
+        '· <b>AND</b>: switch the source to Advanced expression and use <code>&amp;&amp;</code>. Example: <code>mapId === 63 &amp;&amp; v(1027) &gt;= 80</code>, <code>estrus &gt;= 80 &amp;&amp; lust &gt;= 50</code>.<br>' +
+        '· A simple condition checks one source only; use an expression for AND.<br>' +
+        '· “Contains” is plain text matching; in regex, <code>|</code> means OR.<br><br>' +
+        '<b>Advanced expression usage:</b><br>' +
+        '· Text: <code>/word/.test(msg)</code> dialogue, <code>/word/.test(ticker)</code> battle ticker, <code>/word/.test(battlelog)</code> battle log<br>' +
+        '· Variable: <code>v(1027) &gt;= 80</code> (1027 = variable ID, 80 = threshold)<br>' +
+        '· Map: <code>mapId === 63</code><br>' +
+        '· Icons/colors: <code>tickerIcons.includes(906)</code>, <code>tickerColors.includes(27)</code>, <code>msgIcons.includes(12)</code>, <code>msgColors.includes(4)</code><br>' +
+        '· Character: <code>actor.hp &lt; 30</code><br>' +
+        '· Combine with <code>&amp;&amp;</code> for AND and <code>||</code> for OR; use parentheses when mixing.<br><br>' +
+        '<b>Detection sources:</b><br>' +
+        '· Dialogue: character dialogue, including the speaker name<br>' +
+        '· Battle ticker: Ticker text at the top-left of the screen<br>' +
+        '· Battle log: Window_BattleLog (enemy actions / damage / states)<br>' +
+        '· Ticker ID: semantic ID such as TrapActive; more stable than keywords<br>' +
+        '· OCR: OCR mode only; supports contains / regex<br>' +
+        '· Unity text: dialogue text from Unity games<br><br>' +
+        'Note: symbols such as <code>|</code>, <code>\\</code>, <code>&amp;&amp;</code>, and <code>||</code> are not translated.';
+    } else {
+      html = '条件示例：<br>' +
+        '· 对话框文本 <b>包含</b> “游泳” → A 通道 35 / 呼吸 / 3 秒<br>' +
+        '· 战斗播报 <b>正则</b> “今天天气怎么样|你吃了吗” → A 70 / 持续 / 3 秒<br>' +
+        '· 变量 <b>≥</b> 80（选 estrus）→ B 50 / 潮汐 / 0 秒（持续到条件结束）<br><br>' +
+        '<b>“和”与“或”怎么写：</b><br>' +
+        '· <b>或</b>（任意一个满足就触发）：正则里用 <code>|</code>，例如 <code>今天天气怎么样|你吃了吗</code> 表示出现“今天天气怎么样”<b>或</b>“你吃了吗”都触发；高级表达式里也可以用 <code>||</code>。<br>' +
+        '· <code>||</code> 可以同时引用不同来源：左边是对话框文本，右边是战斗播报 ID，任意一个成立就触发。<br>' +
+        '· <b>和</b>（必须同时满足）：请把来源切到“高级表达式”，用 <code>&amp;&amp;</code>，例如 <code>mapId === 63 &amp;&amp; v(1027) &gt;= 80</code>、<code>estrus &gt;= 80 &amp;&amp; lust &gt;= 50</code>。<br>' +
+        '· 简单条件一次只能判断一个来源；要“和”就必须用高级表达式。<br>' +
+        '· “包含”是纯文本包含；“正则”里的 <code>|</code> 才是“或”。<br><br>' +
+        '<b>高级表达式使用方式：</b><br>' +
+        '· 文本：<code>/文字/.test(msg)</code> 对话框、<code>/文字/.test(ticker)</code> 左上角战斗播报、<code>/文字/.test(battlelog)</code> 战斗日志<br>' +
+        '· 变量：<code>v(1027) &gt;= 80</code>（1027 是变量代号，80 是阈值）<br>' +
+        '· 地图：<code>mapId === 63</code><br>' +
+        '· 图标/颜色：<code>tickerIcons.includes(906)</code>、<code>tickerColors.includes(27)</code>、<code>msgIcons.includes(12)</code>、<code>msgColors.includes(4)</code><br>' +
+        '· 角色：<code>actor.hp &lt; 30</code><br>' +
+        '· 组合：<code>&amp;&amp;</code> 表示和，<code>||</code> 表示或；混合使用时建议加括号。<br><br>' +
+        '<b>文字检测来源：</b><br>' +
+        '· 对话框文本：角色对话内容（含角色名）<br>' +
+        '· 战斗播报：屏幕左上角 的Ticker 文本<br>' +
+        '· 战斗日志：Window_BattleLog（敌人行动/伤害/状态）<br>' +
+        '· 播报 ID：语义 ID（如 TrapActive），比关键词更稳定<br>' +
+        '· OCR 文本：仅 OCR 模式可用，只支持“包含 / 正则”<br>' +
+        '· Unity 文本：Unity 制作的游戏的对话框内容<br><br>' +
+        '注：<code>|</code>、<code>\\</code>、<code>&amp;&amp;</code>、<code>||</code> 等关键符号不会被翻译。';
+    }
+    $('conditionExamples').innerHTML = html;
+  }
+
   function renderMessage() {
     var el = $('msgText');
-    if (!state.msgRaw) { return; }
-    if (rawVisible()) { $('msgRaw').classList.add('show'); $('msgRaw').textContent = state.msgRaw; el.textContent = ''; }
-    else { $('msgRaw').classList.remove('show'); renderRich(el, state.msgRaw); }
+    if (!state.msgLines.length) { return; }
+    var count = Math.max(1, Number($('msgLogCount') && $('msgLogCount').value) || 1);
+    var lines = state.msgLines.slice(-count);
+    if (rawVisible()) {
+      $('msgRaw').classList.add('show');
+      $('msgRaw').textContent = lines.map(function (x) { return x.raw; }).join('\n');
+      el.textContent = '';
+      return;
+    }
+    $('msgRaw').classList.remove('show');
+    el.innerHTML = '';
+    lines.forEach(function (line) {
+      var d = document.createElement('div');
+      d.className = 'bline';
+      renderRich(d, line.display);
+      el.appendChild(d);
+    });
   }
   function renderTicker() {
     var el = $('tickText');
-    if (!state.tickRaw) { return; }
-    if (rawVisible()) { $('tickRaw').classList.add('show'); $('tickRaw').textContent = state.tickRaw; el.textContent = ''; }
-    else { $('tickRaw').classList.remove('show'); renderRich(el, state.tickRaw); }
+    if (!state.tickLines.length) { return; }
+    var count = Math.max(1, Number($('tickerLogCount').value) || 2);
+    var lines = state.tickLines.slice(-count);
+    if (rawVisible()) {
+      $('tickRaw').classList.add('show');
+      $('tickRaw').textContent = lines.map(function (x) { return x.raw; }).join('\n');
+      el.textContent = '';
+      return;
+    }
+    $('tickRaw').classList.remove('show');
+    el.innerHTML = '';
+    lines.forEach(function (line) {
+      var d = document.createElement('div');
+      d.className = 'bline';
+      renderRich(d, line.display);
+      el.appendChild(d);
+    });
   }
 
   function showMessage(ev) {
@@ -840,12 +1021,18 @@
     if (ev.choices && ev.choices.length) { meta.push(badge('选项 ' + ev.choices.join(' / '))); }
     $('msgMeta').innerHTML = meta.join('');
     state.msgRaw = ev.text || '';
+    var lastMsg = state.msgLines[state.msgLines.length - 1];
+    if (state.msgRaw && (!lastMsg || lastMsg.raw !== state.msgRaw)) {
+      state.msgLines.push({ display: state.msgRaw, raw: state.msgRaw, ts: Date.now() });
+      while (state.msgLines.length > 10) { state.msgLines.shift(); }
+    }
     $('msgText').className = 'text';
     renderMessage();
     $('msgTime').textContent = now() + (ev.phase ? ' · ' + ev.phase : '');
   }
 
   function clearMessage() {
+    if (state.msgLines.length) { renderMessage(); $('msgTime').textContent = now(); return; }
     state.msgRaw = '';
     $('msgMeta').innerHTML = '';
     $('msgText').className = 'text dim';
@@ -855,6 +1042,11 @@
   }
 
   function showTicker(ev) {
+    if (Array.isArray(ev.tickerVars)) {
+      ev.tickerVars.forEach(function (tv) {
+        if (tv && tv.id !== undefined) { state.vars[tv.id] = tv.value; }
+      });
+    }
     var meta = [];
     var m = state.lastMeta;
     if (m) {
@@ -864,7 +1056,14 @@
       if (m.actorId) { meta.push(badge('演员 ' + m.actorId)); }
     }
     $('tickMeta').innerHTML = meta.join('');
-    state.tickRaw = ev.text || '';
+    state.tickRaw = ev.displayText || ev.text || '';
+    state.tickRawOriginal = ev.text || state.tickRaw;
+    var line = { display: state.tickRaw, raw: state.tickRawOriginal, ts: Date.now() };
+    var last = state.tickLines[state.tickLines.length - 1];
+    if (!last || last.display !== line.display || last.raw !== line.raw) {
+      state.tickLines.push(line);
+      while (state.tickLines.length > 10) { state.tickLines.shift(); }
+    }
     $('tickText').className = 'text';
     renderTicker();
     $('tickTime').textContent = now();
@@ -874,9 +1073,11 @@
   function renderBattlelog() {
     var el = $('blText');
     if (!state.blLines.length) { return; }
+    var count = Math.max(1, Number($('blLogCount') && $('blLogCount').value) || 2);
+    var lines = state.blLines.slice(-count);
     el.innerHTML = '';
     el.className = 'text';
-    state.blLines.forEach(function (line) {
+    lines.forEach(function (line) {
       var d = document.createElement('div');
       d.className = 'bline';
       if (rawVisible()) { d.textContent = line; }
@@ -912,9 +1113,11 @@
     row.className = 'row';
     var ch = a.action && a.action.channel ? String(a.action.channel).toUpperCase() : '-';
     var waveName = a.action && (a.action.wave || a.action.pulse);
+    var isSequence = !!(a.action && Array.isArray(a.action.steps) && a.action.steps.length);
     var detail = [];
     if (a.action && a.action.strength !== undefined) { detail.push('强度 ' + a.action.strength); }
-    if (waveName) { detail.push('波形 ' + (WAVE_NAMES[waveName] || waveName)); }
+    if (isSequence) { detail.push('波形序列 ' + a.action.steps.length + ' 步'); }
+    else if (waveName) { detail.push('波形 ' + (WAVE_NAMES[waveName] || waveName)); }
     if (a.action && a.action.seconds) { detail.push(a.action.seconds + 's'); }
     if (a.action && a.action.label) { detail.push(a.action.label); }
     if (a.sent) { detail.push('→ ' + a.sent); }
@@ -931,8 +1134,9 @@
     if (a.action && a.action.channel) {
       var key = String(a.action.channel).toUpperCase();
       var strength = a.edge === 'ON' ? (a.action.strength || 0) : 0;
-      if (key === 'A') { $('chA').textContent = strength; $('pulseA').textContent = a.edge === 'ON' ? (waveName || '') : ''; }
-      if (key === 'B') { $('chB').textContent = strength; $('pulseB').textContent = a.edge === 'ON' ? (waveName || '') : ''; }
+      var displayWave = isSequence ? ('序列 ' + a.action.steps.length + ' 步') : (waveName || '');
+      if (key === 'A') { $('chA').textContent = strength; $('pulseA').textContent = a.edge === 'ON' ? displayWave : ''; }
+      if (key === 'B') { $('chB').textContent = strength; $('pulseB').textContent = a.edge === 'ON' ? displayWave : ''; }
     }
   }
 
@@ -949,9 +1153,8 @@
   };
   var WAVE_NAMES = {
     const: '持续', sine: '呼吸', tide: '潮汐', heart: '心跳', pulse: '脉冲',
-    rampUp: '渐强', rampDown: '渐弱', saw: '锯齿', random: '随机', massage: '按摩',
-    burst: '连击', wave: '波浪', knock: '敲击', crawl: '蠕动',
-    randomWave: '随机波形'
+    rampUp: '渐强', rampDown: '渐弱', saw: '锯齿', random: '随机', randomWave: '随机波形', massage: '按摩',
+    burst: '连击', wave: '波浪', knock: '敲击', crawl: '蠕动'
   };
 
   function loadProfile() {
@@ -968,13 +1171,69 @@
 
   function fillVarOptions() {
     var vars = profile && profile.vars ? profile.vars : {};
-    var sws = profile && profile.switches ? profile.switches : {};
-    $('rVar').innerHTML = Object.keys(vars).map(function (n) {
-      return '<option value="' + n + '">' + n + ' (#' + vars[n] + ')</option>';
-    }).join('') || '<option value="">（无变量）</option>';
-    $('rSwitch').innerHTML = Object.keys(sws).map(function (n) {
-      return '<option value="' + n + '">' + n + ' (#' + sws[n] + ')</option>';
-    }).join('') || '<option value="">（无开关）</option>';
+    var curVar = $('rVar').value;
+    $('rVar').innerHTML = '<option value="">（不选择 / 手动填写）</option>' + (Object.keys(vars).map(function (n) {
+      return '<option value="' + esc(n) + '" data-id="' + esc(vars[n]) + '">' + esc(n) + ' (#' + esc(vars[n]) + ')</option>';
+    }).join('') || '<option value="" disabled>（无变量）</option>');
+    if (curVar && $('rVar').querySelector('option[value="' + curVar.replace(/"/g, '\\"') + '"]')) { $('rVar').value = curVar; }
+    renderVarCurrent();
+  }
+
+  function selectedVarInfo() {
+    var sel = $('rVar');
+    var opt = sel && sel.options[sel.selectedIndex];
+    var name = $('rVarName').value.trim() || (opt ? opt.value : '');
+    var id = $('rVarId').value.trim();
+    if (!id && opt && opt.getAttribute('data-id')) { id = opt.getAttribute('data-id'); }
+    return { name: name, id: id ? Number(id) : null };
+  }
+
+  function renderVarCurrent() {
+    var info = selectedVarInfo();
+    if (!info.name && !info.id) { $('varCurrent').textContent = t('未选择变量'); return; }
+    var value = info.id !== null && state.vars[info.id] !== undefined ? state.vars[info.id] : '—';
+    $('varCurrent').textContent = (info.name || ('#' + info.id)) +
+      (info.id !== null ? ' (#' + info.id + ')' : '') + '  ' + t('当前值') + '：' + value;
+  }
+
+  function catalogStart(kind) {
+    fetch('/api/catalog/start', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '启动失败'); }
+      setStatus($('saveStatus'), t('已开始读取变量，10 分钟内播报中出现的变量会自动加入当前项目'), true);
+    }).catch(function (e) { setStatus($('saveStatus'), e.message, false); });
+  }
+
+  function catalogBroadcast() {
+    fetch('/api/catalog/broadcast').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '读取失败'); }
+      var items = d.items || [];
+      if (!items.length) { setStatus($('saveStatus'), t('当前播报中没有变量引用'), false); return; }
+      var first = items[0];
+      $('rVarName').value = first.name || ('#' + first.id);
+      $('rVarId').value = first.id;
+      if (profile && first.name) {
+        profile.vars = profile.vars || {};
+        profile.vars[first.name] = first.id;
+        fillVarOptions();
+        $('rVar').value = first.name;
+      }
+      renderVarCurrent();
+      setStatus($('saveStatus'), t('已获取当前播报变量：') + items.map(function (x) { return x.name || ('#' + x.id); }).join('、'), true);
+    }).catch(function (e) { setStatus($('saveStatus'), e.message, false); });
+  }
+
+  function catalogClear(kind) {
+    var label = kind === 'switch' ? t('开关记录') : t('变量记录');
+    if (!confirm(tf('清空当前项目的{kind}？已有规则不会删除，但可能显示为未捕获。', { kind: label }))) { return; }
+    fetch('/api/catalog/clear', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: kind })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '清空失败'); }
+      if (profile) { profile.vars = d.vars; profile.switches = d.switches; }
+      fillVarOptions();
+      setStatus($('saveStatus'), t('已清空') + label, true);
+    }).catch(function (e) { setStatus($('saveStatus'), e.message, false); });
   }
 
   function describeTrigger(r) {
@@ -996,7 +1255,11 @@
     ['A', 'B'].forEach(function (ch) {
       var c = o[ch];
       if (!c || !c.enabled) { return; }
-      parts.push(ch + ' ' + c.strength + ' ' + (WAVE_NAMES[c.wave] || c.wave || '持续') + ' ' + (Number(c.seconds) > 0 ? c.seconds + 's' : '持续'));
+      if (Array.isArray(c.steps) && c.steps.length) {
+        parts.push(ch + ' 序列 ' + c.steps.length + ' 步' + (Number(c.loop) > 0 ? ' ×' + c.loop : ' 无限'));
+      } else {
+        parts.push(ch + ' ' + c.strength + ' ' + (WAVE_NAMES[c.wave] || c.wave || '持续') + ' ' + (Number(c.seconds) > 0 ? c.seconds + 's' : '持续'));
+      }
     });
     return parts.length ? parts.join(' / ') : '无输出';
   }
@@ -1062,12 +1325,10 @@
     setOpOptions(source, $('rOp').value);
     var isExpr = source === 'expression';
     var isVar = source === 'var';
-    var isSwitch = source === 'switch';
     $('exprWrap').style.display = isExpr ? '' : 'none';
     $('opWrap').style.display = isExpr ? 'none' : '';
-    $('valueWrap').style.display = (isExpr || isSwitch) ? 'none' : '';
+    $('valueWrap').style.display = isExpr ? 'none' : '';
     $('varWrap').style.display = isVar ? '' : 'none';
-    $('switchWrap').style.display = isSwitch ? '' : 'none';
     var ph = '关键词 / 正则';
     if (source === 'tickerId') { ph = '例如 AttackEstrus 或 TrapActive'; }
     if (source === 'var') { ph = '阈值，例如 80'; }
@@ -1077,6 +1338,39 @@
       if (op === 'color') { ph = '颜色编号 0-31，例如 4'; }
     }
     $('rValue').placeholder = ph;
+    var canRepeat = source === 'var';
+    var repeatOption = $('rTrigMode').querySelector('option[value="repeat"]');
+    if (repeatOption) { repeatOption.disabled = !canRepeat; }
+    if (!canRepeat && $('rTrigMode').value === 'repeat') { $('rTrigMode').value = 'hold'; }
+    var repeat = $('rTrigMode').value === 'repeat';
+    $('repeatWrap').style.display = repeat ? '' : 'none';
+  }
+
+  function updateOutputForm() {
+    var seq = $('rOutMode').value === 'sequence';
+    $('singleOut').style.display = seq ? 'none' : '';
+    $('seqOut').style.display = seq ? '' : 'none';
+  }
+
+  function parseSeqText(text) {
+    var steps = [];
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      var s = line.trim();
+      if (!s) { return; }
+      var p = s.split(/[,，\s]+/);
+      if (p.length < 3) { throw new Error('序列行格式应为：波形,强度,秒数 → ' + s); }
+      var wave = p[0];
+      var strength = Number(p[1]);
+      var seconds = Number(p[2]);
+      if (!Number.isFinite(strength) || strength < 0 || strength > 200) { throw new Error('序列强度无效：' + s); }
+      if (!Number.isFinite(seconds) || seconds <= 0) { throw new Error('序列秒数无效：' + s); }
+      steps.push({ wave: wave, strength: strength, seconds: seconds });
+    });
+    return steps;
+  }
+
+  function formatSeqText(steps) {
+    return (steps || []).map(function (s) { return s.wave + ',' + s.strength + ',' + s.seconds; }).join('\n');
   }
 
   function editRule(id) {
@@ -1094,11 +1388,11 @@
       $('rExpr').value = t.value || '';
     } else if (t.source === 'var') {
       $('rVar').value = t.name || '';
+      $('rVarName').value = t.id ? (t.name || '') : '';
+      $('rVarId').value = t.id !== undefined && t.id !== null ? String(t.id) : '';
       $('rOp').value = t.op || 'gte';
       $('rValue').value = t.value !== undefined ? t.value : '';
-    } else if (t.source === 'switch') {
-      $('rSwitch').value = t.name || '';
-      $('rOp').value = t.op || 'on';
+      renderVarCurrent();
     } else {
       $('rOp').value = t.op || 'contains';
       $('rValue').value = t.value !== undefined ? t.value : '';
@@ -1113,6 +1407,17 @@
     }
     setCh('A', 'rAOn', 'rAWave', 'rAStrength', 'rASeconds');
     setCh('B', 'rBOn', 'rBWave', 'rBStrength', 'rBSeconds');
+    $('rTrigMode').value = r.mode === 'repeat' ? 'repeat' : 'hold';
+    $('rRepeatSeconds').value = Math.max(1, Math.round((Number(r.repeatMs) || 5000) / 1000));
+    var aSteps = o.A && Array.isArray(o.A.steps) ? o.A.steps : [];
+    var bSteps = o.B && Array.isArray(o.B.steps) ? o.B.steps : [];
+    $('rOutMode').value = (aSteps.length || bSteps.length) ? 'sequence' : 'single';
+    $('rASeq').value = formatSeqText(aSteps);
+    $('rBSeq').value = formatSeqText(bSteps);
+    $('rSeqLoop').value = (o.A && o.A.loop) || (o.B && o.B.loop) || 1;
+    $('rSeqOverlap').value = (o.A && o.A.overlap) || (o.B && o.B.overlap) || 'skip';
+    updateRuleForm();
+    updateOutputForm();
     $('btnDelete').style.display = '';
   }
 
@@ -1127,6 +1432,18 @@
     $('rOp').value = 'contains';
     $('rValue').value = '';
     $('rExpr').value = '';
+    $('rTrigMode').value = 'hold';
+    $('rRepeatSeconds').value = 5;
+    $('rOutMode').value = 'single';
+    $('rASeq').value = '';
+    $('rBSeq').value = '';
+    $('rSeqLoop').value = 1;
+    $('rSeqOverlap').value = 'skip';
+    updateRuleForm();
+    updateOutputForm();
+    $('rVarName').value = '';
+    $('rVarId').value = '';
+    renderVarCurrent();
     $('rAOn').checked = true;
     $('rAWave').value = 'sine';
     $('rAStrength').value = 40;
@@ -1153,15 +1470,12 @@
       if (!expr) { throw new Error('高级表达式不能为空'); }
       trigger = { source: 'expression', value: expr };
     } else if (source === 'var') {
-      var vn = $('rVar').value;
-      if (!vn) { throw new Error('请选择变量'); }
+      var info = selectedVarInfo();
+      if (!info.name) { throw new Error('请选择变量或填写变量名'); }
+      if (info.id === null || !Number.isFinite(info.id)) { throw new Error('请选择变量或填写变量 ID'); }
       var vv = numOrUndef($('rValue').value);
       if (vv === undefined) { throw new Error('请填写阈值'); }
-      trigger = { source: 'var', op: $('rOp').value, name: vn, value: vv };
-    } else if (source === 'switch') {
-      var sn = $('rSwitch').value;
-      if (!sn) { throw new Error('请选择开关'); }
-      trigger = { source: 'switch', op: $('rOp').value, name: sn };
+      trigger = { source: 'var', op: $('rOp').value, name: info.name, id: info.id, value: vv };
     } else {
       var val = $('rValue').value.trim();
       if (!val) { throw new Error('请填写条件值'); }
@@ -1185,11 +1499,21 @@
       A: readCh('A', 'rAOn', 'rAWave', 'rAStrength', 'rASeconds'),
       B: readCh('B', 'rBOn', 'rBWave', 'rBStrength', 'rBSeconds')
     };
+    if ($('rOutMode').value === 'sequence') {
+      var seqA = parseSeqText($('rASeq').value);
+      var seqB = parseSeqText($('rBSeq').value);
+      var loop = Math.max(0, Math.floor(Number($('rSeqLoop').value) || 1));
+      var overlap = $('rSeqOverlap').value === 'restart' ? 'restart' : 'skip';
+      outputs.A = { enabled: seqA.length > 0, steps: seqA, loop: loop, overlap: overlap };
+      outputs.B = { enabled: seqB.length > 0, steps: seqB, loop: loop, overlap: overlap };
+    }
     if (!outputs.A.enabled && !outputs.B.enabled) { throw new Error('至少启用一个输出通道'); }
 
     return {
       id: id,
       trigger: trigger,
+      mode: ($('rTrigMode').value === 'repeat' && source === 'var') ? 'repeat' : 'hold',
+      repeatMs: Math.max(200, (Number($('rRepeatSeconds').value) || 5) * 1000),
       outputs: outputs,
       cooldownMs: numOrUndef($('rCooldown').value) || 800
     };
@@ -2004,10 +2328,11 @@
       case 'snapshot':
         if (ev.mapId) { setMap(ev.mapId, ev.map); }
         if (ev.vars) { for (var k in ev.vars) { state.vars[k] = ev.vars[k]; } }
+        if (ev.switches) { for (var sk in ev.switches) { state.switches[sk] = ev.switches[sk]; } }
         if (ev.party) { state.party = ev.party; }
         break;
-      case 'var': state.vars[ev.id] = ev.value; break;
-      case 'switch': break;
+      case 'var': state.vars[ev.id] = ev.value; renderVarCurrent(); break;
+      case 'switch': state.switches[ev.id] = ev.value; break;
       default: break;
     }
   }
@@ -2022,6 +2347,10 @@
       if (msg.type === 'conn') { setConn(msg.connected); if (msg.connected) { loadStateSnapshot(); } return; }
       if (msg.type === 'action' || msg.type === 'log') { addLog(msg); return; }
       if (msg.type === 'device') { renderDevice(msg.device); return; }
+      if (msg.type === 'catalog') {
+        if (profile) { profile.vars = msg.vars || profile.vars; profile.switches = msg.switches || profile.switches; fillVarOptions(); }
+        return;
+      }
     if (msg.type === 'ocr') {
       if (msg.status) { renderOcrStatus(msg.status); }
       if (msg.text !== undefined) { $('ocrResult').textContent = msg.text || '（等待文字…）'; }
@@ -2059,6 +2388,7 @@
       return;
     }
     DGRMI18n.apply(this.value);
+    renderConditionExamples();
     setConn(connState);
     if (lastDevice) { renderDevice(lastDevice); }
   };
@@ -2070,7 +2400,19 @@
   $('uiLang').value = DGRMI18n.current();
 
   initTabs();
+  updateRuleForm();
+  updateOutputForm();
+  renderConditionExamples();
+  $('btnVarRead').onclick = function () { catalogStart('var'); };
+  $('btnVarBroadcast').onclick = catalogBroadcast;
+  $('btnVarClear').onclick = function () { catalogClear('vars'); };
+  $('rVar').onchange = function () { $('rVarName').value = ''; $('rVarId').value = ''; renderVarCurrent(); };
+  $('rVarName').oninput = function () { if (this.value) { $('rVar').value = ''; } renderVarCurrent(); };
+  $('rVarId').oninput = function () { if (this.value) { $('rVar').value = ''; } renderVarCurrent(); };
   $('rawToggle').onchange = function () { renderMessage(); renderTicker(); renderBattlelog(); };
+  $('msgLogCount').onchange = renderMessage;
+  $('tickerLogCount').onchange = renderTicker;
+  $('blLogCount').onchange = renderBattlelog;
   $('btnNew').onclick = function () {
     if (!profile) {
       loadProfile().then(clearForm).catch(function (e) { setStatus($('saveStatus'), e.message, false); });
@@ -2081,6 +2423,8 @@
   $('btnDelete').onclick = function () { if (editingId) { deleteRule(editingId); clearForm(); } };
   $('btnReload').onclick = function () { loadProfile().then(function () { setStatus($('saveStatus'), '已重新载入', true); }).catch(function (e) { setStatus($('saveStatus'), e.message, false); }); };
   $('rSource').onchange = updateRuleForm;
+  $('rTrigMode').onchange = updateRuleForm;
+  $('rOutMode').onchange = updateOutputForm;
   $('rOp').onchange = updateRuleForm;
   $('btnSaveOutput').onclick = saveOutput;
   $('btnDevScan').onclick = devScan;
@@ -2130,6 +2474,8 @@
       setConn(!!s.connected);
       setMap(s.mapId, s.map);
       if (s.vars) { for (var k in s.vars) { state.vars[k] = s.vars[k]; } }
+      if (s.switches) { for (var sk in s.switches) { state.switches[sk] = s.switches[sk]; } }
+      renderVarCurrent();
       if (s.actors) { state.actors = s.actors; }
       if (s.party) { state.party = s.party; }
       if (s.messageRaw) { showMessage({ text: s.messageRaw, speaker: s.messageSpeaker, eventName: s.messageEventName, phase: 'last' }); }

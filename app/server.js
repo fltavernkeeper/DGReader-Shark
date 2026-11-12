@@ -80,6 +80,54 @@ const swById = new Map();
 const swByName = new Map();
 let rules = [];
 
+const MAX_CATALOG_VARS = 200;
+const MAX_CATALOG_SWITCHES = 100;
+const CATALOG_READ_MS = 10 * 60 * 1000;
+let catalogReadUntil = 0;
+let catalogProject = '';
+
+function catalogReading() {
+    return catalogReadUntil > Date.now() &&
+        (!catalogProject || catalogProject === store.data.activeProject);
+}
+
+function learnCatalog(kind, name, id) {
+    if (!catalogReading()) { return false; }
+    const clean = String(name || '').trim();
+    const n = Number(id);
+    if (!clean || !Number.isFinite(n)) { return false; }
+    const p = store.activeProject();
+    if (!p) { return false; }
+    const key = kind === 'switch' ? 'switches' : 'vars';
+    const max = kind === 'switch' ? MAX_CATALOG_SWITCHES : MAX_CATALOG_VARS;
+    if (!p[key] || typeof p[key] !== 'object') { p[key] = {}; }
+    if (Object.prototype.hasOwnProperty.call(p[key], clean)) { return false; }
+    if (Object.keys(p[key]).length >= max) { return false; }
+    p[key][clean] = n;
+    profile[key] = p[key];
+    store.save();
+    if (kind === 'switch') {
+        swById.set(n, clean);
+        swByName.set(clean, n);
+    } else {
+        varById.set(n, clean);
+        varByName.set(clean, n);
+    }
+    broadcast({ type: 'catalog', kind: kind, name: clean, id: n, vars: profile.vars, switches: profile.switches, ts: Date.now() });
+    return true;
+}
+
+function extractVarRefs(text) {
+    const ids = [];
+    const re = /\\[vV]\[(\d+)\]/g;
+    let m;
+    while ((m = re.exec(String(text || ''))) !== null) {
+        const id = Number(m[1]);
+        if (ids.indexOf(id) < 0) { ids.push(id); }
+    }
+    return ids;
+}
+
 function num(v) {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
@@ -119,12 +167,16 @@ function compileTrigger(t) {
         if (op === 'contains') { return `tickerId.includes(${JSON.stringify(String(v || ''))})`; }
     }
     if (src === 'var') {
-        const id = varByName.get(String(t.name || ''));
+        const id = (t.id !== undefined && t.id !== null && t.id !== '' && Number.isFinite(Number(t.id)))
+            ? Number(t.id)
+            : varByName.get(String(t.name || ''));
         if (id === undefined) { return 'false'; }
         return `v(${id}) ${OP_MAP[op] || '>='} ${Number(v) || 0}`;
     }
     if (src === 'switch') {
-        const id = swByName.get(String(t.name || ''));
+        const id = (t.id !== undefined && t.id !== null && t.id !== '' && Number.isFinite(Number(t.id)))
+            ? Number(t.id)
+            : swByName.get(String(t.name || ''));
         if (id === undefined) { return 'false'; }
         return `sw(${id}) === ${op === 'off' ? 'false' : 'true'}`;
     }
@@ -137,6 +189,22 @@ function actionsFromOutputs(outputs) {
     for (const ch of ['A', 'B']) {
         const o = outputs && outputs[ch];
         if (!o || !o.enabled) { continue; }
+        const steps = (Array.isArray(o.steps) ? o.steps : []).map((s) => ({
+            wave: s && s.wave ? String(s.wave) : 'const',
+            strength: Math.max(0, Math.min(200, num(s && s.strength))),
+            seconds: Math.max(0.1, num(s && s.seconds) || 1)
+        })).filter((s) => s.strength > 0);
+        if (steps.length) {
+            const loopRaw = (o.loop === undefined || o.loop === null || o.loop === '') ? 1 : num(o.loop);
+            actions.push({
+                channel: ch,
+                steps: steps,
+                loop: Math.max(0, Math.floor(loopRaw)),
+                overlap: o.overlap === 'restart' ? 'restart' : 'skip'
+            });
+            releases.push({ channel: ch, strength: 0 });
+            continue;
+        }
         const strength = Math.max(0, Math.min(200, num(o.strength)));
         if (strength <= 0) { continue; }
         actions.push({
@@ -170,7 +238,7 @@ function buildRules(list) {
             when: when,
             trigger: r.trigger || null,
             outputs: r.outputs || null,
-            mode: r.mode || 'hold',
+            mode: (r.mode === 'repeat' && r.trigger && (r.trigger.source === 'var' || r.trigger.source === 'switch')) ? 'repeat' : 'hold',
             action: action,
             release: release,
             cooldownMs: num(r.cooldownMs) || 800,
@@ -287,9 +355,23 @@ function broadcast(obj) {
 // ---------------------------------------------------------------------------
 // 文本展开/清洗
 // ---------------------------------------------------------------------------
+function expandVars(text, maxPasses) {
+    let value = String(text === undefined || text === null ? '' : text);
+    const passes = Math.max(1, Math.min(20, Number(maxPasses) || 10));
+    for (let i = 0; i < passes; i++) {
+        const previous = value;
+        value = value.replace(/\\[vV]\[(\d+)\]/g, (_, id) => {
+            const n = Number(id);
+            return String(state.vars[n] !== undefined ? state.vars[n] : 0);
+        });
+        if (value === previous) { break; }
+    }
+    return value;
+}
+
 function expandText(text) {
     if (typeof text !== 'string') { return ''; }
-    let s = text.replace(/\\v\[(\d+)\]/gi, (_, id) => String(num(state.vars[Number(id)])));
+    let s = expandVars(text);
     // 图标/颜色/控制符：保留成可匹配的占位，再统一清洗
     s = s.replace(/\\[iI]\[(\d+)\]/g, ' [icon:$1] ');
     s = s.replace(/\\[cC]\[(\d+)\]/g, ' [color:$1] ');
@@ -334,8 +416,9 @@ function extractCodes(text) {
     const colors = [];
     if (typeof text === 'string') {
         let m;
+        const source = expandVars(text);
         const re = /\\[iI]\[(\d+)\]|\\[cC]\[(\d+)\]/g;
-        while ((m = re.exec(text)) !== null) {
+        while ((m = re.exec(source)) !== null) {
             if (m[1] !== undefined) { icons.push(Number(m[1])); }
             if (m[2] !== undefined) { colors.push(Number(m[2])); }
         }
@@ -382,6 +465,15 @@ function buildContext() {
     };
     for (const [id, name] of varById) { ctx[name] = num(state.vars[id]); }
     for (const [id, name] of swById) { ctx[name] = !!state.switches[id]; }
+    // 表达式里引用了已从目录清除的名字时，避免 ReferenceError 打断规则保存/评估
+    for (const rule of rules) {
+        const t = rule.trigger;
+        if (!t || t.source !== 'expression' || !t.value) { continue; }
+        const identifiers = String(t.value).match(/[A-Za-z_$][\w$]*/g) || [];
+        for (const id of identifiers) {
+            if (!Object.prototype.hasOwnProperty.call(ctx, id)) { ctx[id] = undefined; }
+        }
+    }
     return ctx;
 }
 
@@ -464,9 +556,15 @@ function evaluateAll() {
         const result = evalRule(rule, context);
         const now = Date.now();
         if (rule.mode === 'repeat') {
-            if (result && now - rule.lastFire >= rule.repeatMs) {
-                rule.lastFire = now;
-                fire(rule, rule.action, null, 'ON');
+            if (result) {
+                if (!rule.active || now - rule.lastFire >= rule.repeatMs) {
+                    rule.active = true;
+                    rule.lastFire = now;
+                    fire(rule, rule.action, null, 'ON');
+                }
+            } else if (rule.active) {
+                rule.active = false;
+                if (rule.release) { fire(rule, rule.release, null, 'OFF'); }
             }
             continue;
         }
@@ -486,6 +584,11 @@ function evaluateAll() {
 function ruleActions(rule) {
     return Array.isArray(rule.action) ? rule.action : [rule.action];
 }
+
+// repeat 规则需要独立时钟，不能只依赖游戏事件
+setInterval(() => {
+    if (rules.some((r) => r.enabled && r.mode === 'repeat')) { scheduleEval(); }
+}, 200).unref();
 
 // 当一条规则释放通道时，如果还有别的规则在占用同一通道，恢复其中强度最高的那条
 function findFallback(ch, exclude) {
@@ -576,6 +679,7 @@ function handle(obj) {
         case 'var': {
             const id = Number(obj.id);
             state.vars[id] = obj.value;
+            if (obj.name) { learnCatalog('var', obj.name, id); }
             changed = true;
             if (VERBOSE) { console.log(`  var ${id} ${varById.get(id) || obj.name || ''} = ${obj.value}`); }
             break;
@@ -584,6 +688,7 @@ function handle(obj) {
         case 'switch': {
             const id = Number(obj.id);
             state.switches[id] = !!obj.value;
+            if (obj.name) { learnCatalog('switch', obj.name, id); }
             changed = true;
             if (VERBOSE) { console.log(`  switch ${id} ${swById.get(id) || obj.name || ''} = ${obj.value}`); }
             break;
@@ -604,8 +709,14 @@ function handle(obj) {
             if (obj.vars) {
                 for (const [id, value] of Object.entries(obj.vars)) { state.vars[Number(id)] = value; }
             }
+            if (obj.varNames) {
+                for (const [id, name] of Object.entries(obj.varNames)) { learnCatalog('var', name, Number(id)); }
+            }
             if (obj.switches) {
                 for (const [id, value] of Object.entries(obj.switches)) { state.switches[Number(id)] = !!value; }
+            }
+            if (obj.switchNames) {
+                for (const [id, name] of Object.entries(obj.switchNames)) { learnCatalog('switch', name, Number(id)); }
             }
             changed = true;
             break;
@@ -635,15 +746,25 @@ function handle(obj) {
 
         case 'ticker': {
             const now = Date.now();
+            if (Array.isArray(obj.tickerVars)) {
+                for (const tv of obj.tickerVars) {
+                    const id = Number(tv && tv.id);
+                    if (Number.isFinite(id)) {
+                        state.vars[id] = tv.value;
+                        if (tv.name) { learnCatalog('var', tv.name, id); }
+                    }
+                }
+            }
             if (obj.text === state.tickerRaw && now - state.lastTickerAt < 200) { break; }
-            // 若这条 ticker 不是紧跟在 TickerBTM/TickerSys 之后，清掉上一条的语义 ID
+            const tickerText = obj.displayText || obj.text || '';
+            if (tickerText === state.tickerRaw && now - state.lastTickerAt < 200) { break; }
             if (now - state.tickerMetaAt > 150) {
                 state.tickerId = '';
                 state.tickerKind = '';
                 state.tickerPattern = '';
                 state.tickerActor = 0;
             }
-            state.tickerRaw = obj.text || '';
+            state.tickerRaw = tickerText;
             state.ticker = expandText(state.tickerRaw);
             state.lastTickerAt = now;
             changed = true;
@@ -685,7 +806,16 @@ function handle(obj) {
             break;
     }
 
-    if (changed) { scheduleEval(); }
+    if (changed) {
+        // 战斗播报 / 战斗日志可能在同一批 socket 数据里连续到达多条。
+        // 逐条立即评估，避免后一条覆盖前者，导致规则只看到最后一条。
+        if (obj.t === 'ticker' || obj.t === 'battlelog') {
+            if (evalTimer) { clearTimeout(evalTimer); evalTimer = null; }
+            evaluateAll();
+        } else {
+            scheduleEval();
+        }
+    }
     if (obj.t === 'unity') { obj.speaker = state.messageSpeaker; }
     if (BROADCAST_TYPES.has(obj.t)) { broadcast({ type: 'event', event: obj }); }
 }
@@ -745,12 +875,14 @@ function validateProfile(p) {
                 if (typeof t.value !== 'string' || !t.value.trim()) { throw new Error(r.id + ' 的高级表达式为空'); }
                 try { new vm.Script(t.value); } catch (e) { throw new Error(r.id + ' 的表达式语法错误：' + e.message); }
             } else if (t.source === 'var') {
-                if (!t.name || !(p.vars && Object.prototype.hasOwnProperty.call(p.vars, t.name))) {
+                const hasId = t.id !== undefined && t.id !== null && t.id !== '' && Number.isFinite(Number(t.id));
+                if (!t.name || (!hasId && !(p.vars && Object.prototype.hasOwnProperty.call(p.vars, t.name)))) {
                     throw new Error(r.id + ' 的变量不存在：' + (t.name || ''));
                 }
                 if (!Number.isFinite(Number(t.value))) { throw new Error(r.id + ' 的阈值不是数字'); }
             } else if (t.source === 'switch') {
-                if (!t.name || !(p.switches && Object.prototype.hasOwnProperty.call(p.switches, t.name))) {
+                const hasId = t.id !== undefined && t.id !== null && t.id !== '' && Number.isFinite(Number(t.id));
+                if (!t.name || (!hasId && !(p.switches && Object.prototype.hasOwnProperty.call(p.switches, t.name)))) {
                     throw new Error(r.id + ' 的开关不存在：' + (t.name || ''));
                 }
             } else if (['msg', 'ticker', 'battlelog', 'ocr', 'unity', 'tickerId'].indexOf(t.source) < 0) {
@@ -767,7 +899,11 @@ function validateProfile(p) {
         }
 
         if (r.outputs && typeof r.outputs === 'object') {
-            const any = ['A', 'B'].some((ch) => r.outputs[ch] && r.outputs[ch].enabled && Number(r.outputs[ch].strength) > 0);
+            const any = ['A', 'B'].some((ch) => {
+                const o = r.outputs[ch];
+                if (!o || !o.enabled) { return false; }
+                return Number(o.strength) > 0 || (Array.isArray(o.steps) && o.steps.length > 0);
+            });
             if (!any) { throw new Error(r.id + ' 至少需要一个通道，且强度大于 0'); }
         } else if (r.action && typeof r.action === 'object') {
             const a = Array.isArray(r.action) ? r.action[0] : r.action;
@@ -888,6 +1024,7 @@ if (require.main === module) {
                     unityChoices: state.unityChoices,
                     actor: state.actor,
                     vars: state.vars,
+                    switches: state.switches,
                     rules: rules.map((r) => ({ id: r.id, active: r.active, enabled: r.enabled, when: r.when })),
                     output: outputSettings,
                     device: device.status(),
@@ -966,7 +1103,7 @@ if (require.main === module) {
             if (url === '/api/projects' && req.method === 'POST') {
                 withJson(req, res, (m) => {
                     const p = store.createProject(m.name, m.gameDir, {
-                        vars: profile.vars, switches: profile.switches, rules: []
+                        vars: {}, switches: {}, rules: []
                     });
                     reloadActive();
                     jsonRes(res, 200, { ok: true, project: { id: p.id, name: p.name }, projects: projectSummary() });
@@ -1081,6 +1218,67 @@ if (require.main === module) {
                     reloadActive();
                     jsonRes(res, 200, { ok: true, rules: s.rules.length });
                 });
+                return;
+            }
+
+            if (url === '/api/catalog/start' && req.method === 'POST') {
+                catalogProject = store.data.activeProject;
+                catalogReadUntil = Date.now() + CATALOG_READ_MS;
+                jsonRes(res, 200, {
+                    ok: true, until: catalogReadUntil, project: catalogProject,
+                    vars: profile.vars, switches: profile.switches,
+                    maxVars: MAX_CATALOG_VARS, maxSwitches: MAX_CATALOG_SWITCHES
+                });
+                return;
+            }
+
+            if (url === '/api/catalog/clear' && req.method === 'POST') {
+                withJson(req, res, (m) => {
+                    const p = store.activeProject();
+                    if (!p) { throw new Error('项目不存在'); }
+                    const kind = String(m.kind || 'all');
+                    const keepVars = new Set();
+                    const keepSwitches = new Set();
+                    const scene = store.activeScene(p);
+                    for (const r of (scene && scene.rules) || []) {
+                        const t = r.trigger || {};
+                        if (t.source === 'var' && t.name) { keepVars.add(t.name); }
+                        if (t.source === 'switch' && t.name) { keepSwitches.add(t.name); }
+                        if (t.source === 'expression' && t.value) {
+                            for (const name of Object.keys(p.vars || {})) {
+                                if (String(t.value).indexOf(name) >= 0) { keepVars.add(name); }
+                            }
+                            for (const name of Object.keys(p.switches || {})) {
+                                if (String(t.value).indexOf(name) >= 0) { keepSwitches.add(name); }
+                            }
+                        }
+                    }
+                    if (kind === 'var' || kind === 'vars' || kind === 'all') {
+                        for (const name of Object.keys(p.vars || {})) {
+                            if (!keepVars.has(name)) { delete p.vars[name]; }
+                        }
+                    }
+                    if (kind === 'switch' || kind === 'switches' || kind === 'all') {
+                        for (const name of Object.keys(p.switches || {})) {
+                            if (!keepSwitches.has(name)) { delete p.switches[name]; }
+                        }
+                    }
+                    store.save();
+                    reloadActive();
+                    jsonRes(res, 200, { ok: true, vars: profile.vars, switches: profile.switches, keptVars: Array.from(keepVars), keptSwitches: Array.from(keepSwitches) });
+                });
+                return;
+            }
+
+            if (url === '/api/catalog/broadcast' && req.method === 'GET') {
+                const items = extractVarRefs(state.tickerRaw).map((id) => {
+                    const name = varById.get(id) || '';
+                    return { id: id, name: name, value: state.vars[id] };
+                });
+                if (catalogReading()) {
+                    items.forEach((x) => { if (x.name) { learnCatalog('var', x.name, x.id); } });
+                }
+                jsonRes(res, 200, { ok: true, items: items, ticker: state.tickerRaw || '' });
                 return;
             }
 

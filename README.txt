@@ -1,4 +1,4 @@
-DGReader 鲨鱼版 v1.06 By FL
+DGReader 鲨鱼版 v1.07 By FL
 ========================
 
 读取 RPG Maker 游戏的对话框 / 战斗播报 / 战斗日志 / 变量，

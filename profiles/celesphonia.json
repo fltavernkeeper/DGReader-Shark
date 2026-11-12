@@ -170,25 +170,6 @@
       "cooldownMs": 10000
     },
     {
-      "id": "dialog_swim",
-      "trigger": {
-        "source": "expression",
-        "value": "(mapId === 63 || mapId === 175 || swimming) && /泳|水着|泳装|游泳池|プール/.test(msg)"
-      },
-      "outputs": {
-        "A": {
-          "enabled": true,
-          "strength": 35,
-          "wave": "sine",
-          "seconds": 3
-        },
-        "B": {
-          "enabled": false
-        }
-      },
-      "cooldownMs": 4000
-    },
-    {
       "id": "dialog_danger",
       "trigger": {
         "source": "msg",
@@ -238,16 +219,21 @@
       },
       "outputs": {
         "A": {
-          "enabled": false
+          "enabled": true,
+          "strength": 30,
+          "wave": "randomWave",
+          "seconds": 3
         },
         "B": {
           "enabled": true,
-          "strength": 50,
-          "wave": "tide",
-          "seconds": 0
+          "strength": 30,
+          "wave": "randomWave",
+          "seconds": 3
         }
       },
-      "cooldownMs": 2000
+      "cooldownMs": 2000,
+      "mode": "repeat",
+      "repeatMs": 45000
     },
     {
       "id": "battlelog_damage",
