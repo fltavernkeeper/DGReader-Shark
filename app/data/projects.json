@@ -40,12 +40,15 @@
               "outputs": {
                 "A": {
                   "enabled": true,
-                  "strength": 70,
+                  "strength": 38,
                   "wave": "const",
                   "seconds": 3
                 },
                 "B": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 30,
+                  "wave": "heart",
+                  "seconds": 3
                 }
               },
               "cooldownMs": 8000,
@@ -59,11 +62,14 @@
               },
               "outputs": {
                 "A": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 30,
+                  "wave": "sine",
+                  "seconds": 2
                 },
                 "B": {
                   "enabled": true,
-                  "strength": 55,
+                  "strength": 36,
                   "wave": "sine",
                   "seconds": 2
                 }
@@ -78,7 +84,10 @@
               },
               "outputs": {
                 "A": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 30,
+                  "wave": "sine",
+                  "seconds": 2
                 },
                 "B": {
                   "enabled": true,
@@ -99,12 +108,15 @@
               "outputs": {
                 "A": {
                   "enabled": true,
-                  "strength": 45,
+                  "strength": 35,
                   "wave": "sine",
                   "seconds": 2
                 },
                 "B": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 25,
+                  "wave": "pulse",
+                  "seconds": 2
                 }
               },
               "cooldownMs": 5000
@@ -119,12 +131,15 @@
               "outputs": {
                 "A": {
                   "enabled": true,
-                  "strength": 60,
+                  "strength": 35,
                   "wave": "const",
                   "seconds": 3
                 },
                 "B": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 28,
+                  "wave": "sine",
+                  "seconds": 3
                 }
               },
               "cooldownMs": 8000
@@ -138,11 +153,14 @@
               },
               "outputs": {
                 "A": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 25,
+                  "wave": "pulse",
+                  "seconds": 1.5
                 },
                 "B": {
                   "enabled": true,
-                  "strength": 40,
+                  "strength": 35,
                   "wave": "pulse",
                   "seconds": 1.5
                 }
@@ -158,12 +176,15 @@
               "outputs": {
                 "A": {
                   "enabled": true,
-                  "strength": 50,
+                  "strength": 38,
                   "wave": "sine",
                   "seconds": 3
                 },
                 "B": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 30,
+                  "wave": "tide",
+                  "seconds": 3
                 }
               },
               "cooldownMs": 10000
@@ -178,12 +199,15 @@
               "outputs": {
                 "A": {
                   "enabled": true,
-                  "strength": 65,
+                  "strength": 35,
                   "wave": "const",
                   "seconds": 2
                 },
                 "B": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 28,
+                  "wave": "sine",
+                  "seconds": 2
                 }
               },
               "cooldownMs": 6000
@@ -197,7 +221,10 @@
               },
               "outputs": {
                 "A": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 28,
+                  "wave": "sine",
+                  "seconds": 2
                 },
                 "B": {
                   "enabled": true,
@@ -243,7 +270,10 @@
               },
               "outputs": {
                 "A": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 25,
+                  "wave": "sine",
+                  "seconds": 1.5
                 },
                 "B": {
                   "enabled": true,
@@ -264,12 +294,15 @@
               "outputs": {
                 "A": {
                   "enabled": true,
-                  "strength": 55,
+                  "strength": 38,
                   "wave": "sine",
                   "seconds": 2
                 },
                 "B": {
-                  "enabled": false
+                  "enabled": true,
+                  "strength": 28,
+                  "wave": "sine",
+                  "seconds": 2
                 }
               },
               "cooldownMs": 4000

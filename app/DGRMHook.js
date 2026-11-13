@@ -86,7 +86,9 @@
 
     var HOST = String(params.Host || '127.0.0.1');
     var PORT = asInt(params.Port, 17870);
-    var WATCH_VARS = idList(params.WatchVars || '1021,1034,1026,1027,1022,1030,212,741,742');
+    var WATCH_VARS = (params.WatchVars === undefined || String(params.WatchVars).trim() === '')
+        ? []
+        : idList(params.WatchVars);
     var WATCH_SWITCHES = idList(params.WatchSwitches || '267,883,886,261,18');
     var SNAPSHOT_MS = Math.max(200, asInt(params.SnapshotMs, 1000));
     var LOG_TICKER = asBool(params.LogTicker, true);
@@ -299,9 +301,20 @@
     // 部分战斗/剧情插件直接调用 TickerContainer.show，绕过 TickerManager。
     if (LOG_TICKER && typeof TickerContainer !== 'undefined' && TickerContainer.prototype && TickerContainer.prototype.show) {
         var _tickerContainerShow = TickerContainer.prototype.show;
-        TickerContainer.prototype.show = function (text, needPlus) {
-            try { emitTicker(text, 'container'); } catch (e) { /* ignore */ }
+        TickerContainer.prototype.show = function (setting, needPlus) {
+            try {
+                var text = setting && typeof setting === 'object' ? setting.text : setting;
+                emitTicker(text, 'container');
+            } catch (e) { /* ignore */ }
             return _tickerContainerShow.apply(this, arguments);
+        };
+    }
+    // MZ 的 $TM 是 TickerManager 的全局别名；不同插件可能直接调用 $TM.show。
+    if (LOG_TICKER && window.$TM && typeof window.$TM.show === 'function') {
+        var _tmShow = window.$TM.show;
+        window.$TM.show = function (text) {
+            try { emitTicker(text, 'tm'); } catch (e) { /* ignore */ }
+            return _tmShow.apply(this, arguments);
         };
     }
 
@@ -332,6 +345,25 @@
                 }
             } catch (e) { /* ignore */ }
             return _drawLineText.apply(this, arguments);
+        };
+    }
+
+    // 部分游戏把滚动事件文本做成自定义 Window，而不是走 TickerManager。
+    if (LOG_TICKER && typeof SH_ShowEventTextWithFrame === 'function') {
+        var _showEventText = SH_ShowEventTextWithFrame;
+        SH_ShowEventTextWithFrame = function (title, text) {
+            try { emitTicker(text, 'eventtext'); } catch (e) { /* ignore */ }
+            return _showEventText.apply(this, arguments);
+        };
+    }
+    if (LOG_TICKER && typeof SH_Nuitter === 'function') {
+        var _nuitter = SH_Nuitter;
+        SH_Nuitter = function () {
+            try {
+                var text = window.$gameVariables ? $gameVariables.value(1913) : '';
+                emitTicker(text, 'sns');
+            } catch (e) { /* ignore */ }
+            return _nuitter.apply(this, arguments);
         };
     }
 
@@ -464,10 +496,19 @@
         try {
             var vars = {};
             var varNames = {};
-            for (var i = 0; i < WATCH_VARS.length; i++) {
-                var id = WATCH_VARS[i];
-                vars[id] = $gameVariables.value(id);
-                varNames[id] = variableName(id);
+            if (WATCH_VARS.length === 0 && window.$dataSystem && $dataSystem.variables) {
+                // 空 WatchVars 表示关注所有变量：首次连接也把所有已命名变量带给界面。
+                for (var id = 1; id < $dataSystem.variables.length; id++) {
+                    if (!variableName(id)) { continue; }
+                    vars[id] = $gameVariables.value(id);
+                    varNames[id] = variableName(id);
+                }
+            } else {
+                for (var i = 0; i < WATCH_VARS.length; i++) {
+                    var id = WATCH_VARS[i];
+                    vars[id] = $gameVariables.value(id);
+                    varNames[id] = variableName(id);
+                }
             }
             var sws = {};
             var switchNames = {};

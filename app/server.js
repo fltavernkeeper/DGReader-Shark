@@ -80,7 +80,7 @@ const swById = new Map();
 const swByName = new Map();
 let rules = [];
 
-const MAX_CATALOG_VARS = 200;
+const MAX_CATALOG_VARS = 15000;
 const MAX_CATALOG_SWITCHES = 100;
 const CATALOG_READ_MS = 10 * 60 * 1000;
 let catalogReadUntil = 0;
@@ -300,6 +300,7 @@ const state = {
     connected: false,
     vars: {},          // id -> number
     switches: {},      // id -> boolean
+    palette: null,     // 32 colors sampled from the game's Window.png
     mapId: 0,
     mapName: '',
     actor: null,
@@ -343,7 +344,7 @@ function resetChannels() {
 // SSE（给浏览器界面用）
 // ---------------------------------------------------------------------------
 const sseClients = new Set();
-const BROADCAST_TYPES = new Set(['hello', 'map', 'message', 'message_end', 'ticker', 'ticker_meta', 'snapshot', 'var', 'switch', 'battlelog', 'unity']);
+const BROADCAST_TYPES = new Set(['hello', 'map', 'message', 'message_end', 'ticker', 'ticker_meta', 'snapshot', 'var', 'switch', 'battlelog', 'unity', 'palette']);
 
 function broadcast(obj) {
     const line = 'data: ' + JSON.stringify(obj) + '\n\n';
@@ -652,6 +653,13 @@ function handle(obj) {
             if (Array.isArray(obj.actors)) { state.actors = obj.actors; }
             break;
 
+        case 'palette':
+            if (Array.isArray(obj.colors)) {
+                state.palette = obj.colors.slice(0, 32);
+                changed = true;
+            }
+            break;
+
         case 'unity': {
             const kind = String(obj.kind || '').toUpperCase();
             const text = String(obj.text || '');
@@ -930,14 +938,42 @@ function runAsync(res, fn) {
 }
 function findSystemAsset(name) {
     if (!/^[A-Za-z0-9_.\-]+$/.test(name)) { return null; }
-    const candidates = [
-        path.join(gameDir, 'www', 'img', 'system', name),
-        path.join(gameDir, 'img', 'system', name)
+    const roots = [
+        path.join(gameDir, 'www', 'img', 'system'),
+        path.join(gameDir, 'img', 'system')
     ];
-    for (const c of candidates) {
-        try { if (fs.existsSync(c)) { return c; } } catch (e) { /* ignore */ }
+    for (const root of roots) {
+        const candidates = [path.join(root, name), path.join(root, name + '_')];
+        for (const c of candidates) {
+            try { if (fs.existsSync(c)) { return c; } } catch (e) { /* ignore */ }
+        }
     }
     return null;
+}
+
+function readSystemAsset(file) {
+    const buf = fs.readFileSync(file);
+    if (!file.endsWith('_') || buf.length < 32 || buf.slice(0, 5).toString('latin1') !== 'RPGMV') {
+        return buf;
+    }
+    try {
+        const sysFiles = [
+            path.join(gameDir, 'www', 'data', 'System.json'),
+            path.join(gameDir, 'data', 'System.json')
+        ];
+        const sysFile = sysFiles.find((f) => fs.existsSync(f));
+        if (!sysFile) { return buf; }
+        const sys = JSON.parse(fs.readFileSync(sysFile, 'utf8').replace(/^\uFEFF/, ''));
+        if (!sys.encryptionKey) { return buf; }
+        const key = Buffer.from(String(sys.encryptionKey), 'hex');
+        const body = Buffer.from(buf.slice(16));
+        for (let i = 0; i < Math.min(16, body.length, key.length); i++) {
+            body[i] ^= key[i];
+        }
+        return body;
+    } catch (e) {
+        return buf;
+    }
 }
 
 if (require.main === module) {
@@ -1025,6 +1061,7 @@ if (require.main === module) {
                     actor: state.actor,
                     vars: state.vars,
                     switches: state.switches,
+                    palette: state.palette,
                     rules: rules.map((r) => ({ id: r.id, active: r.active, enabled: r.enabled, when: r.when })),
                     output: outputSettings,
                     device: device.status(),
@@ -1605,16 +1642,17 @@ if (require.main === module) {
                 return;
             }
 
-            if (url.startsWith('/assets/system/')) {
-                const name = decodeURIComponent(url.slice('/assets/system/'.length));
+            const assetPath = url.split('?')[0];
+            if (assetPath.startsWith('/assets/system/')) {
+                const name = decodeURIComponent(assetPath.slice('/assets/system/'.length));
                 const file = findSystemAsset(name);
                 if (!file) {
                     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
                     res.end('asset not found');
                     return;
                 }
-                res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=3600' });
-                fs.createReadStream(file).pipe(res);
+                res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store, no-cache, must-revalidate' });
+                res.end(readSystemAsset(file));
                 return;
             }
 

@@ -118,7 +118,12 @@
 <div class="projectbar">
   <label>游戏 <select id="projSelect"></select></label>
   <label>场景 <select id="sceneSelect"></select></label>
-  <span id="projHint" class="note"></span>
+  <label class="row" style="font-size:12px;color:var(--muted)">
+    <input type="checkbox" id="brightenDarkToggle" checked /> 提亮深色字符
+  </label>
+  <label class="row" style="font-size:12px;color:var(--muted)">
+    <input type="checkbox" id="rawToggle" /> 显示原始转义文本
+  </label>
 </div>
 
 <!-- ============================= 读取 ============================= -->
@@ -184,13 +189,7 @@
             <div class="ch"><div class="name">通道 A</div><div class="val" id="chA">0</div><div class="pulse" id="pulseA"></div></div>
             <div class="ch"><div class="name">通道 B</div><div class="val" id="chB">0</div><div class="pulse" id="pulseB"></div></div>
           </div>
-          <div class="row" style="margin-top:12px">
-            <label class="row" style="font-size:12px;color:var(--muted)">
-              <input type="checkbox" id="rawToggle" /> 显示原始转义文本
-            </label>
-          </div>
         </div>
-        <div class="hint">规则可输出到界面，也可直接驱动负鼠 BLE（设备标签）。</div>
       </section>
     </div>
 
@@ -245,7 +244,7 @@
                 <option value="ocr">OCR 文本</option>
                 <option value="unity">Unity 文本</option>
                 <option value="tickerId">播报 ID</option>
-                <option value="var">变量数值</option>
+                <option value="var">变量</option>
                 <option value="expression">高级表达式</option>
               </select>
             </label>
@@ -258,7 +257,8 @@
             <div class="f" style="flex:1;display:none" id="varWrap">
               <div class="hd2">变量</div>
               <div class="row">
-                <select id="rVar" style="flex:1"></select>
+                <input id="rVarSearch" placeholder="搜索变量名或 ID" style="flex:1;min-width:150px" />
+                <select id="rVar" style="flex:2"></select>
                 <button class="btn" id="btnVarRead" type="button">开始读取变量</button>
                 <button class="btn" id="btnVarBroadcast" type="button">当前播报变量</button>
                 <button class="btn danger" id="btnVarClear" type="button">清空变量记录</button>
@@ -566,7 +566,7 @@
       <section class="panel">
           <div class="hd"><b>关于</b><span>DGReader 鲨鱼版</span></div>
           <div class="bd note">
-          当前版本：<span id="aboutVersion">v1.07</span><br>
+          当前版本：<span id="aboutVersion">v1.08</span><br>
           最新 Release：<a href="https://github.com/fltavernkeeper/DGReader-Shark/releases" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/releases</a><br>
           Discussions：<a href="https://github.com/fltavernkeeper/DGReader-Shark/discussions" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/discussions</a><br>
           <span class="dim">更新不定期。<br>使用问题、兼容性讨论、经验交流、功能建议、波形与预设，都可以在 Discussions 页面讨论。</span>
@@ -590,7 +590,7 @@
 <main id="view-device">
   <div class="grid">
     <section class="panel">
-      <div class="hd"><b>负鼠 BLE</b><span>官方协议 180C / 150A · B3 强度 + B0 波形</span></div>
+      <div class="hd"><b>负鼠 BLE</b></div>
       <div class="bd">
         <div class="row">
           <label class="f" style="flex:1">蓝牙地址<input id="devAddress" placeholder="扫描后自动填入，或手动输入 12 位地址" /></label>
@@ -728,7 +728,7 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.07 By FL</span></footer>
+<footer><span class="ver">v1.08 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
@@ -801,7 +801,7 @@
         renderMessage(); renderTicker();
       } catch (e) { /* 用默认调色板 */ }
     };
-    img.src = '/assets/system/Window.png';
+    img.src = '/assets/system/Window.png?v=2';
   })();
 
   // ---------------- 富文本渲染：文本 + 图标 + 颜色 + 变量 ----------------
@@ -830,6 +830,32 @@
     return value;
   }
 
+  function brightenDarkEnabled() {
+    var el = document.getElementById('brightenDarkToggle');
+    return !el || el.checked;
+  }
+
+  function brightenDarkColor(css) {
+    var s = String(css || '').trim();
+    var r, g, b, a = 1;
+    var m = /^#([0-9a-f]{6})$/i.exec(s);
+    if (m) {
+      r = parseInt(m[1].slice(0, 2), 16); g = parseInt(m[1].slice(2, 4), 16); b = parseInt(m[1].slice(4, 6), 16);
+    } else if ((m = /^rgba?\(([^)]+)\)$/i.exec(s))) {
+      var p = m[1].split(',').map(function (x) { return parseFloat(x); });
+      r = p[0] || 0; g = p[1] || 0; b = p[2] || 0; a = p.length > 3 ? p[3] : 1;
+    } else {
+      return css;
+    }
+    var lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    if (lum >= 0.5) { return css; }
+    var k = 0.72;
+    r = Math.round(r + (255 - r) * k);
+    g = Math.round(g + (255 - g) * k);
+    b = Math.round(b + (255 - b) * k);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
   function renderRich(el, raw) {
     raw = expandRichVars(raw);
     el.innerHTML = '';
@@ -842,7 +868,9 @@
       if (!buf) { return; }
       var span = document.createElement('span');
       span.textContent = buf;
-      if (color !== null && palette[color]) { span.style.color = palette[color]; }
+      if (color !== null && palette[color]) {
+        span.style.color = brightenDarkEnabled() ? brightenDarkColor(palette[color]) : palette[color];
+      }
       frag.appendChild(span);
       buf = '';
     }
@@ -890,7 +918,7 @@
     var lang = window.DGRMI18n && DGRMI18n.current ? DGRMI18n.current() : 'zh';
     var html = '';
     if (lang === 'ja') {
-      html = '条件例：<br>' +
+      html = '<b>条件例：</b><br>' +
         '・ダイアログ <b>含む</b> 「游泳」 → A 35 / 呼吸 / 3 秒<br>' +
         '・戦闘ティッカー <b>正規表現</b> 「今天天气怎么样|你吃了吗」 → A 70 / 持続 / 3 秒<br>' +
         '・変数 <b>≥</b> 80（estrus）→ B 50 / 潮汐 / 0 秒（条件が終わるまで持続）<br><br>' +
@@ -916,7 +944,7 @@
         '・Unityテキスト：Unity製ゲームのダイアログ内容<br><br>' +
         '注：<code>|</code>、<code>\\</code>、<code>&amp;&amp;</code>、<code>||</code> などの記号は翻訳されません。';
     } else if (lang === 'en') {
-      html = 'Examples:<br>' +
+      html = '<b>Examples:</b><br>' +
         '· Dialogue <b>contains</b> “游泳” → A 35 / Breathing / 3s<br>' +
         '· Battle ticker <b>regex</b> “今天天气怎么样|你吃了吗” → A 70 / Constant / 3s<br>' +
         '· Variable <b>≥</b> 80 (estrus) → B 50 / Tide / 0s (until condition ends)<br><br>' +
@@ -942,7 +970,7 @@
         '· Unity text: dialogue text from Unity games<br><br>' +
         'Note: symbols such as <code>|</code>, <code>\\</code>, <code>&amp;&amp;</code>, and <code>||</code> are not translated.';
     } else {
-      html = '条件示例：<br>' +
+      html = '<b>条件示例：</b><br>' +
         '· 对话框文本 <b>包含</b> “游泳” → A 通道 35 / 呼吸 / 3 秒<br>' +
         '· 战斗播报 <b>正则</b> “今天天气怎么样|你吃了吗” → A 70 / 持续 / 3 秒<br>' +
         '· 变量 <b>≥</b> 80（选 estrus）→ B 50 / 潮汐 / 0 秒（持续到条件结束）<br><br>' +
@@ -1172,7 +1200,12 @@
   function fillVarOptions() {
     var vars = profile && profile.vars ? profile.vars : {};
     var curVar = $('rVar').value;
-    $('rVar').innerHTML = '<option value="">（不选择 / 手动填写）</option>' + (Object.keys(vars).map(function (n) {
+    var q = ($('rVarSearch') && $('rVarSearch').value || '').trim().toLowerCase();
+    var names = Object.keys(vars).filter(function (n) {
+      return !q || n.toLowerCase().indexOf(q) >= 0 || String(vars[n]).indexOf(q) >= 0;
+    });
+    if (curVar && vars[curVar] !== undefined && names.indexOf(curVar) < 0) { names.unshift(curVar); }
+    $('rVar').innerHTML = '<option value="">（不选择 / 手动填写）</option>' + (names.map(function (n) {
       return '<option value="' + esc(n) + '" data-id="' + esc(vars[n]) + '">' + esc(n) + ' (#' + esc(vars[n]) + ')</option>';
     }).join('') || '<option value="" disabled>（无变量）</option>');
     if (curVar && $('rVar').querySelector('option[value="' + curVar.replace(/"/g, '\\"') + '"]')) { $('rVar').value = curVar; }
@@ -1744,7 +1777,6 @@
         return '<option value="' + s.id + '">' + esc(s.name) + ' (' + s.count + ')</option>';
       }).join('');
       if (proj) { $('sceneSelect').value = proj.activeScene; }
-      $('projHint').textContent = proj ? (t('当前游戏：') + proj.name) : '';
       if (proj) {
         $('pName').value = proj.name;
         $('gDir').value = '';
@@ -1764,7 +1796,7 @@
       })
       .then(function () { return loadProfile(); })
       .then(clearForm)
-      .catch(function (e) { $('projHint').textContent = e.message; });
+      .catch(function (e) { console.error(e.message); });
   }
 
   function switchScene(id) {
@@ -1776,7 +1808,7 @@
       })
       .then(function () { return loadProfile(); })
       .then(clearForm)
-      .catch(function (e) { $('projHint').textContent = e.message; });
+      .catch(function (e) { console.error(e.message); });
   }
 
   function browse(mode) {
@@ -2325,6 +2357,12 @@
       case 'ticker_meta': state.lastMeta = ev; break;
       case 'ticker': showTicker(ev); break;
       case 'battlelog': showBattlelog(ev); break;
+      case 'palette':
+        if (Array.isArray(ev.colors)) {
+          ev.colors.forEach(function (c, n) { if (c) { palette[n] = c; } });
+          renderMessage(); renderTicker(); renderBattlelog();
+        }
+        break;
       case 'snapshot':
         if (ev.mapId) { setMap(ev.mapId, ev.map); }
         if (ev.vars) { for (var k in ev.vars) { state.vars[k] = ev.vars[k]; } }
@@ -2403,10 +2441,19 @@
   updateRuleForm();
   updateOutputForm();
   renderConditionExamples();
+  var brightenToggle = $('brightenDarkToggle');
+  if (brightenToggle) {
+    try { brightenToggle.checked = localStorage.getItem('dgreader.brightenDark') !== '0'; } catch (e) { /* ignore */ }
+    brightenToggle.onchange = function () {
+      try { localStorage.setItem('dgreader.brightenDark', this.checked ? '1' : '0'); } catch (e) { /* ignore */ }
+      renderMessage(); renderTicker(); renderBattlelog();
+    };
+  }
   $('btnVarRead').onclick = function () { catalogStart('var'); };
   $('btnVarBroadcast').onclick = catalogBroadcast;
   $('btnVarClear').onclick = function () { catalogClear('vars'); };
   $('rVar').onchange = function () { $('rVarName').value = ''; $('rVarId').value = ''; renderVarCurrent(); };
+  $('rVarSearch').oninput = fillVarOptions;
   $('rVarName').oninput = function () { if (this.value) { $('rVar').value = ''; } renderVarCurrent(); };
   $('rVarId').oninput = function () { if (this.value) { $('rVar').value = ''; } renderVarCurrent(); };
   $('rawToggle').onchange = function () { renderMessage(); renderTicker(); renderBattlelog(); };
@@ -2475,6 +2522,7 @@
       setMap(s.mapId, s.map);
       if (s.vars) { for (var k in s.vars) { state.vars[k] = s.vars[k]; } }
       if (s.switches) { for (var sk in s.switches) { state.switches[sk] = s.switches[sk]; } }
+      if (Array.isArray(s.palette)) { s.palette.forEach(function (c, n) { if (c) { palette[n] = c; } }); }
       renderVarCurrent();
       if (s.actors) { state.actors = s.actors; }
       if (s.party) { state.party = s.party; }

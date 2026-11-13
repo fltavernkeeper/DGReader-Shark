@@ -6,8 +6,8 @@ const path = require('path');
 const PLUGIN_NAME = 'DGRMHook';
 const ENTRY_PARAMS = {
     Port: '17870',
-    WatchVars: '1021,1034,1026,1027,1022,1030,212,741,742',
-    WatchSwitches: '267,883,886,261,18'
+    WatchVars: '',
+    WatchSwitches: ''
 };
 
 function resolveGame(gameDir) {
@@ -58,9 +58,30 @@ function detectEncoding(buf) {
 }
 
 function extractList(text) {
-    const m = text.match(/var\s+\$plugins\s*=\s*(\[[\s\S]*?\])\s*;/);
+    const m = /var\s+\$plugins\s*=\s*\[/.exec(text);
     if (!m) { throw new Error('找不到标准 var $plugins = [...];'); }
-    return JSON.parse(m[1]);
+    const start = m.index + m[0].length - 1;
+    let depth = 0;
+    let inString = false;
+    let esc = false;
+    for (let i = start; i < text.length; i++) {
+        const c = text[i];
+        if (inString) {
+            if (esc) { esc = false; continue; }
+            if (c === '\\') { esc = true; continue; }
+            if (c === '"') { inString = false; }
+            continue;
+        }
+        if (c === '"') { inString = true; continue; }
+        if (c === '[') { depth++; continue; }
+        if (c === ']') {
+            depth--;
+            if (depth === 0) {
+                return JSON.parse(text.slice(start, i + 1));
+            }
+        }
+    }
+    throw new Error('$plugins 数组没有闭合');
 }
 
 // 在字节层面找 $plugins 数组的 '[' 和配对的 ']'，不碰任何原有字节
@@ -186,10 +207,28 @@ function status(gameDir) {
     };
 }
 
+function pruneBackups(file, keep) {
+    try {
+        const dir = path.dirname(file);
+        const prefix = path.basename(file) + '.dgrmhook.bak-';
+        const items = fs.readdirSync(dir)
+            .filter((name) => name.startsWith(prefix))
+            .map((name) => {
+                const full = path.join(dir, name);
+                return { full, mtime: fs.statSync(full).mtimeMs };
+            })
+            .sort((a, b) => b.mtime - a.mtime);
+        for (let i = keep; i < items.length; i++) {
+            try { fs.unlinkSync(items[i].full); } catch (e) { /* ignore */ }
+        }
+    } catch (e) { /* ignore */ }
+}
+
 function backupPluginFile(p, stamp) {
     if (!fs.existsSync(p.pluginFile)) { return ''; }
     const backup = p.pluginFile + '.dgrmhook.bak-' + stamp;
     fs.copyFileSync(p.pluginFile, backup);
+    pruneBackups(p.pluginFile, 1);
     return backup;
 }
 
@@ -206,15 +245,25 @@ function install(gameDir, options) {
     const pluginBackup = backupPluginFile(p, stamp);
 
     if (arrayHasEntry(buf, bounds)) {
+        // 已存在时也要更新参数（例如 WatchVars 从旧游戏默认值改为空）。
+        const without = removeEntryBytes(buf, bounds);
+        const nextBounds = without ? findArray(without) : null;
+        if (!without || !nextBounds) { throw new Error('无法更新 DGRMHook 插件参数'); }
+        const out = addEntryBytes(without, nextBounds);
         fs.copyFileSync(p.pluginsFile, backup);
+        fs.writeFileSync(p.pluginsFile, out);
         fs.copyFileSync(path.join(__dirname, PLUGIN_NAME + '.js'), p.pluginFile);
-        return { ok: true, already: true, encoding: det.encoding, bom: det.bom, backup: backup, pluginBackup: pluginBackup, entries: extractList(det.text).length };
+        pruneBackups(p.pluginsFile, 3);
+        let entries = 0;
+        try { entries = extractList(det.text).length; } catch (e) { entries = 0; }
+        return { ok: true, already: true, updated: true, encoding: det.encoding, bom: det.bom, backup: backup, pluginBackup: pluginBackup, entries: entries };
     }
 
     const out = addEntryBytes(buf, bounds);
     fs.copyFileSync(p.pluginsFile, backup);
     fs.writeFileSync(p.pluginsFile, out);
     fs.copyFileSync(path.join(__dirname, PLUGIN_NAME + '.js'), p.pluginFile);
+    pruneBackups(p.pluginsFile, 3);
     let entries = 0;
     try { entries = extractList(det.text).length + 1; } catch (e) { entries = 0; }
     return { ok: true, already: false, encoding: det.encoding, bom: det.bom, backup: backup, pluginBackup: pluginBackup, entries: entries };
@@ -237,6 +286,7 @@ function remove(gameDir) {
     fs.copyFileSync(p.pluginsFile, backup);
     fs.writeFileSync(p.pluginsFile, out);
     if (fs.existsSync(p.pluginFile)) { fs.unlinkSync(p.pluginFile); }
+    pruneBackups(p.pluginsFile, 3);
     return { ok: true, removed: 1, encoding: det.encoding, bom: det.bom, backup: backup, pluginBackup: pluginBackup };
 }
 
