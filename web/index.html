@@ -167,7 +167,7 @@
       </section>
 
       <section class="panel">
-        <div class="hd"><b>战斗日志（左上角）</b><span>Window_BattleLog / 敌人行动 / 伤害 / 状态</span>
+        <div class="hd"><b>战斗日志</b><span>Window_BattleLog / 敌人行动 / 伤害 / 状态</span>
           <select id="blLogCount" style="margin-left:auto;width:auto;min-width:70px" title="显示条数">
             <option value="1">1 条</option>
             <option value="2" selected>2 条</option>
@@ -197,14 +197,6 @@
       <section class="panel">
         <div class="hd"><b>规则触发记录</b><span id="ruleCount"></span></div>
         <div class="bd"><div class="log" id="log"></div></div>
-      </section>
-      <section class="panel">
-        <div class="hd"><b>提示</b></div>
-        <div class="bd note">
-          图标与颜色来自游戏 <code>IconSet.png</code> / <code>Window.png</code>。<br>
-          规则可匹配 <code>tickerColors</code> / <code>tickerIcons</code> / <code>msgColors</code> / <code>msgIcons</code> / 文本 / 语义 ID。<br>
-          点上方「规则」标签可增删改，保存后立即生效。
-        </div>
       </section>
     </div>
   </div>
@@ -566,7 +558,7 @@
       <section class="panel">
           <div class="hd"><b>关于</b><span>DGReader 鲨鱼版</span></div>
           <div class="bd note">
-          当前版本：<span id="aboutVersion">v1.08</span><br>
+          当前版本：<span id="aboutVersion">v1.09</span><br>
           最新 Release：<a href="https://github.com/fltavernkeeper/DGReader-Shark/releases" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/releases</a><br>
           Discussions：<a href="https://github.com/fltavernkeeper/DGReader-Shark/discussions" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/discussions</a><br>
           <span class="dim">更新不定期。<br>使用问题、兼容性讨论、经验交流、功能建议、波形与预设，都可以在 Discussions 页面讨论。</span>
@@ -607,7 +599,7 @@
         <div class="note" style="margin-top:6px">
           首次使用：Windows 设置 → 蓝牙和其他设备 → 添加设备 → 蓝牙 → 显示所有设备 → 选择负鼠设备名（数字+英文）。<br />
           配对完成后回到这里，点“扫描附近负鼠” → 使用选中 → 连接。地址会自动记住，以后可直接连接。<br />
-          扫描约 6–30 秒，请让负鼠开机并靠近电脑。
+          扫描约 6–30 秒，请让负鼠开机，连按5下方形HOME键使其蓝牙图标颜色变黄。
         </div>
         <div class="note" id="devStatus" style="margin-top:10px">未连接</div>
 
@@ -728,7 +720,7 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.08 By FL</span></footer>
+<footer><span class="ver">v1.09 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
