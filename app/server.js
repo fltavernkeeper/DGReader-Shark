@@ -282,6 +282,9 @@ function reloadActive() {
     profile = buildActiveProfile();
     if (profile.gameDir) { gameDir = path.resolve(profile.gameDir); }
     applyProfile(profile);
+    applyOutputSettings(profile.output || {});
+    clearTransportState();
+    transport.state = 'play';
     resetChannels();
     const p = store.activeProject();
     const s = store.activeScene(p);
@@ -498,8 +501,42 @@ function evalRule(rule, context) {
 const outputs = [];
 
 const outputSettings = {
-    mode: (profile.output && profile.output.mode) || 'display'
+    mode: (profile.output && profile.output.mode) || 'display',
+    playbackMode: (profile.output && profile.output.playbackMode) === 'realtime' ? 'realtime' : 'hold',
+    conflictMode: ['skip', 'queue', 'preempt', 'split'].includes(profile.output && profile.output.conflictMode)
+        ? profile.output.conflictMode
+        : 'skip',
+    queueLimit: [10, 20, 30, 50, 100, 200].includes(Number(profile.output && profile.output.queueLimit))
+        ? Number(profile.output.queueLimit)
+        : 20
 };
+
+const transport = {
+    state: 'play',              // play | pause | stop
+    queue: [],                  // paired batches waiting
+    current: null,              // paired batch currently playing
+    currentTimer: null,
+    paused: null,               // current batch captured by pause
+    splitQueues: { A: [], B: [] },
+    splitCurrent: { A: null, B: null },
+    splitTimer: { A: null, B: null }
+};
+
+function normalizeConflictMode(value) {
+    return ['skip', 'queue', 'preempt', 'split'].includes(value) ? value : 'skip';
+}
+
+function normalizeQueueLimit(value) {
+    const n = Number(value);
+    return [10, 20, 30, 50, 100, 200].includes(n) ? n : 20;
+}
+
+function applyOutputSettings(o) {
+    const src = o || {};
+    outputSettings.playbackMode = src.playbackMode === 'realtime' ? 'realtime' : 'hold';
+    outputSettings.conflictMode = normalizeConflictMode(src.conflictMode);
+    outputSettings.queueLimit = normalizeQueueLimit(src.queueLimit);
+}
 
 function logOutput() {
     return {
@@ -545,12 +582,13 @@ function scheduleEval() {
 }
 
 function evaluateAll() {
+    if (transport.state === 'stop') { return; }
     const context = vm.createContext(buildContext());
     for (const rule of rules) {
         if (!rule.enabled) {
             if (rule.active) {
                 rule.active = false;
-                if (rule.release) { fire(rule, rule.release, null, 'OFF'); }
+                fire(rule, rule.release || [], null, 'OFF');
             }
             continue;
         }
@@ -565,7 +603,7 @@ function evaluateAll() {
                 }
             } else if (rule.active) {
                 rule.active = false;
-                if (rule.release) { fire(rule, rule.release, null, 'OFF'); }
+                fire(rule, rule.release || [], null, 'OFF');
             }
             continue;
         }
@@ -573,11 +611,11 @@ function evaluateAll() {
             if (now - rule.lastFire >= rule.cooldownMs) {
                 rule.lastFire = now;
                 fire(rule, rule.action, null, 'ON');
+                rule.active = true;
             }
-            rule.active = true;
         } else if (!result && rule.active) {
             rule.active = false;
-            if (rule.release) { fire(rule, rule.release, null, 'OFF'); }
+            fire(rule, rule.release || [], null, 'OFF');
         }
     }
 }
@@ -607,17 +645,259 @@ function findFallback(ch, exclude) {
     return best;
 }
 
-function fire(rule, action, ctx, edge) {
+function actionList(action) {
+    return (Array.isArray(action) ? action : [action])
+        .filter((a) => a && a.enabled !== false && a.channel);
+}
+
+function actionChannel(a) {
+    return a && a.channel ? String(a.channel).toUpperCase() : '';
+}
+
+function actionDuration(a) {
+    if (Array.isArray(a.steps) && a.steps.length) {
+        const loop = Math.max(0, num(a.loop));
+        if (loop === 0) { return Infinity; }
+        const total = a.steps.reduce((sum, step) => sum + Math.max(0.1, num(step && step.seconds) || 0.1), 0);
+        return total * loop;
+    }
+    const seconds = Math.max(0, num(a.seconds));
+    return seconds > 0 ? seconds : Infinity;
+}
+
+function batchDuration(actions) {
+    let max = 0;
+    for (const a of actions) {
+        const d = actionDuration(a);
+        if (d === Infinity) { return Infinity; }
+        max = Math.max(max, d);
+    }
+    return max;
+}
+
+function batchChannels(actions) {
+    const out = [];
+    for (const a of actions) {
+        const ch = actionChannel(a);
+        if (ch && out.indexOf(ch) < 0) { out.push(ch); }
+    }
+    return out;
+}
+
+function controlLog(text) {
+    const line = '[控制] ' + text;
+    console.log(line);
+    broadcast({ type: 'log', text: line, ts: Date.now() });
+}
+
+function queueCount() {
+    let count = transport.splitQueues.A.length + transport.splitQueues.B.length;
+    for (const batch of transport.queue) { count += batch.actions.length; }
+    if (transport.paused) { count += batchChannels(transport.paused.actions).length; }
+    return count;
+}
+
+function transportSnapshot() {
+    return {
+        state: transport.state,
+        playbackMode: outputSettings.playbackMode,
+        conflictMode: outputSettings.conflictMode,
+        queueLimit: outputSettings.queueLimit,
+        queueLength: queueCount(),
+        current: transport.current ? transport.current.rule.id : '',
+        paused: transport.paused ? transport.paused.rule.id : ''
+    };
+}
+
+function broadcastTransport() {
+    broadcast({ type: 'transport', transport: transportSnapshot(), ts: Date.now() });
+}
+
+function broadcastEndedChannel(ch) {
+    if (channelOwner[ch]) { return; }
+    broadcast({ type: 'channel', channel: ch, strength: 0, wave: '', ts: Date.now() });
+}
+
+function clearTransportTimer() {
+    if (transport.currentTimer) {
+        clearTimeout(transport.currentTimer);
+        transport.currentTimer = null;
+    }
+}
+
+function clearSplitTimers() {
+    for (const ch of ['A', 'B']) {
+        if (transport.splitTimer[ch]) {
+            clearTimeout(transport.splitTimer[ch]);
+            transport.splitTimer[ch] = null;
+        }
+    }
+}
+
+function stopTransportOutput() {
+    clearTransportTimer();
+    clearSplitTimers();
+    try { device.stopAll(); } catch (e) { /* ignore */ }
+    for (const ch of Object.keys(channelOwner)) { delete channelOwner[ch]; }
+}
+
+function clearTransportState() {
+    stopTransportOutput();
+    transport.current = null;
+    transport.paused = null;
+    transport.queue = [];
+    transport.splitCurrent = { A: null, B: null };
+    transport.splitQueues = { A: [], B: [] };
+}
+
+function finishPaired() {
+    const batch = transport.current;
+    if (!batch) { return; }
+    transport.currentTimer = null;
+    transport.current = null;
+    for (const ch of batchChannels(batch.actions)) {
+        if (channelOwner[ch] === batch.rule.id) { delete channelOwner[ch]; }
+    }
+    if (batch.releasePending && batch.rule.release) {
+        deliverActions(batch.rule, batch.rule.release, batch.ctx, 'OFF');
+    }
+    for (const ch of batchChannels(batch.actions)) { broadcastEndedChannel(ch); }
+    broadcastTransport();
+    processPairedQueue();
+}
+
+function dispatchPaired(batch) {
+    transport.current = batch;
+    for (const a of batch.actions) {
+        deliverActions(batch.rule, a, batch.ctx, 'ON');
+    }
+    broadcastTransport();
+    const duration = batchDuration(batch.actions);
+    if (duration !== Infinity && duration > 0) {
+        transport.currentTimer = setTimeout(finishPaired, duration * 1000 + 20);
+    }
+}
+
+function processPairedQueue() {
+    if (transport.state !== 'play' || transport.current) { return; }
+    const next = transport.queue.shift();
+    if (next) { dispatchPaired(next); }
+}
+
+function enqueuePaired(rule, action, ctx) {
+    const actions = actionList(action);
+    if (!actions.length) { return; }
+    if (transport.state === 'stop') { return; }
+    const batch = { rule, actions, ctx, releasePending: false };
+    if (transport.state === 'pause') {
+        if (outputSettings.conflictMode === 'split') {
+            enqueueSplit(batch, true);
+            return;
+        }
+        if (queueCount() + batch.actions.length > outputSettings.queueLimit) {
+            controlLog('队列已满，跳过 ' + rule.id);
+            return;
+        }
+        transport.queue.push(batch);
+        controlLog('暂停中，已加入播放队列：' + rule.id);
+        broadcastTransport();
+        return;
+    }
+    const mode = outputSettings.conflictMode;
+    const busy = !!transport.current;
+    if (mode === 'split') {
+        enqueueSplit(batch);
+        return;
+    }
+    if (busy && mode === 'skip') {
+        controlLog('忙，跳过 ' + rule.id);
+        return;
+    }
+    if (busy && mode === 'preempt') {
+        clearTransportTimer();
+        transport.current = null;
+        stopTransportOutput();
+        transport.queue.unshift(batch);
+        processPairedQueue();
+        return;
+    }
+    if (busy || transport.queue.length) {
+        if (queueCount() + batch.actions.length > outputSettings.queueLimit) {
+            controlLog('队列已满，跳过 ' + rule.id);
+            return;
+        }
+        transport.queue.push(batch);
+        controlLog('已加入播放队列：' + rule.id);
+        if (!transport.current) { processPairedQueue(); }
+        broadcastTransport();
+        return;
+    }
+    dispatchPaired(batch);
+}
+
+function finishSplit(ch) {
+    const batch = transport.splitCurrent[ch];
+    if (!batch) { return; }
+    transport.splitTimer[ch] = null;
+    transport.splitCurrent[ch] = null;
+    if (channelOwner[ch] === batch.rule.id) { delete channelOwner[ch]; }
+    if (batch.releasePending && batch.rule.release) {
+        const rel = actionList(batch.rule.release).filter((a) => actionChannel(a) === ch);
+        if (rel.length) { deliverActions(batch.rule, rel, batch.ctx, 'OFF'); }
+    }
+    broadcastEndedChannel(ch);
+    broadcastTransport();
+    processSplitQueue(ch);
+}
+
+function dispatchSplit(ch, batch) {
+    transport.splitCurrent[ch] = batch;
+    deliverActions(batch.rule, batch.action, batch.ctx, 'ON');
+    broadcastTransport();
+    const duration = actionDuration(batch.action);
+    if (duration !== Infinity && duration > 0) {
+        transport.splitTimer[ch] = setTimeout(() => finishSplit(ch), duration * 1000 + 20);
+    }
+}
+
+function processSplitQueue(ch) {
+    if (transport.state !== 'play' || transport.splitCurrent[ch]) { return; }
+    const next = transport.splitQueues[ch].shift();
+    if (next) { dispatchSplit(ch, next); }
+}
+
+function enqueueSplit(batch, queueOnly) {
+    let queued = false;
+    for (const action of batch.actions) {
+        const ch = actionChannel(action);
+        if (!ch) { continue; }
+        const item = { rule: batch.rule, action, ctx: batch.ctx, releasePending: false };
+        if (transport.splitCurrent[ch] || queueOnly) {
+            if (queueCount() + 1 > outputSettings.queueLimit) {
+                controlLog('队列已满，跳过 ' + batch.rule.id);
+                continue;
+            }
+            transport.splitQueues[ch].push(item);
+            queued = true;
+        } else {
+            dispatchSplit(ch, item);
+        }
+    }
+    if (queued) {
+        controlLog((queueOnly ? '暂停中，已加入分开队列：' : '已加入分开队列：') + batch.rule.id);
+        broadcastTransport();
+    }
+}
+
+function deliverActions(rule, action, ctx, edge) {
     const actions = Array.isArray(action) ? action : [action];
     for (const raw of actions) {
         if (!raw || raw.enabled === false) { continue; }
-        // 强度范围按 DG-LAB 官方：0–200
         const a = Object.assign({}, raw);
         if (a.strength !== undefined) {
             a.strength = Math.max(0, Math.min(200, num(a.strength)));
         }
         if (waves.isRandom(a.wave)) { a.wave = waves.pickRandomName(); }
-        // 通道归属：避免 A 规则把 B 规则正在用的通道清零
         if (a.channel) {
             const ch = String(a.channel).toUpperCase();
             if (edge === 'ON') {
@@ -636,6 +916,89 @@ function fire(rule, action, ctx, edge) {
         for (const out of outputs) { out.apply(rule, a, ctx, edge); }
         if (outputSettings.mode === 'device') { device.applyAction(a, edge, rule.id); }
         broadcast({ type: 'action', rule: rule.id, edge: edge, action: a, ts: Date.now() });
+    }
+}
+
+function handleRuleOff(rule, ctx) {
+    // 已经进入播放队列的触发是一次独立任务，不因为之后的文本条件消失而取消。
+    if (transport.paused && transport.paused.rule === rule) {
+        if (outputSettings.playbackMode === 'realtime') { transport.paused = null; }
+    }
+    if (transport.current && transport.current.rule === rule) {
+        if (outputSettings.playbackMode === 'realtime') {
+            const batch = transport.current;
+            clearTransportTimer();
+            transport.current = null;
+            stopTransportOutput();
+            deliverActions(rule, rule.release || [], ctx, 'OFF');
+            processPairedQueue();
+        } else {
+            transport.current.releasePending = true;
+        }
+        return;
+    }
+    for (const ch of ['A', 'B']) {
+        const cur = transport.splitCurrent[ch];
+        if (!cur || cur.rule !== rule) { continue; }
+        if (outputSettings.playbackMode === 'realtime') {
+            if (transport.splitTimer[ch]) { clearTimeout(transport.splitTimer[ch]); transport.splitTimer[ch] = null; }
+            transport.splitCurrent[ch] = null;
+            const rel = actionList(rule.release || []).filter((a) => actionChannel(a) === ch);
+            if (rel.length) { deliverActions(rule, rel, ctx, 'OFF'); }
+            processSplitQueue(ch);
+        } else {
+            cur.releasePending = true;
+        }
+        return;
+    }
+    if (!transport.paused) {
+        deliverActions(rule, rule.release || [], ctx, 'OFF');
+    }
+}
+
+function fire(rule, action, ctx, edge) {
+    if (edge === 'OFF') {
+        handleRuleOff(rule, ctx);
+        return;
+    }
+    enqueuePaired(rule, action, ctx);
+}
+
+function setTransport(action) {
+    if (action === 'play') {
+        if (transport.state === 'play') { return; }
+        transport.state = 'play';
+        controlLog('播放');
+        if (transport.paused) {
+            const batch = transport.paused;
+            transport.paused = null;
+            dispatchPaired(batch);
+        } else {
+            for (const ch of ['A', 'B']) {
+                const cur = transport.splitCurrent[ch];
+                if (cur) {
+                    transport.splitCurrent[ch] = null;
+                    dispatchSplit(ch, cur);
+                }
+            }
+            processPairedQueue();
+        }
+        return;
+    }
+    if (action === 'pause') {
+        if (transport.state === 'pause') { return; }
+        transport.state = 'pause';
+        transport.paused = transport.current;
+        transport.current = null;
+        stopTransportOutput();
+        controlLog('暂停');
+        return;
+    }
+    if (action === 'stop') {
+        transport.state = 'stop';
+        clearTransportState();
+        for (const r of rules) { r.active = false; }
+        controlLog('停止，已清空队列');
     }
 }
 
@@ -1065,6 +1428,7 @@ if (require.main === module) {
                     rules: rules.map((r) => ({ id: r.id, active: r.active, enabled: r.enabled, when: r.when })),
                     output: outputSettings,
                     device: device.status(),
+                    transport: transportSnapshot(),
                     gameDir: gameDir,
                     ts: Date.now()
                 });
@@ -1117,12 +1481,33 @@ if (require.main === module) {
                     try {
                         const o = JSON.parse(body);
                         outputSettings.mode = o.mode === 'device' ? 'device' : 'display';
+                        if (o.playbackMode !== undefined) {
+                            outputSettings.playbackMode = o.playbackMode === 'realtime' ? 'realtime' : 'hold';
+                        }
+                        if (o.conflictMode !== undefined) {
+                            outputSettings.conflictMode = normalizeConflictMode(o.conflictMode);
+                        }
+                        if (o.queueLimit !== undefined) {
+                            outputSettings.queueLimit = normalizeQueueLimit(o.queueLimit);
+                        }
                         const proj = store.activeProject();
                         const scene = store.activeScene(proj);
-                        if (proj && scene) { store.setOutput(proj.id, scene.id, { mode: outputSettings.mode }); }
-                        profile.output = { mode: outputSettings.mode };
+                        if (proj && scene) {
+                            store.setOutput(proj.id, scene.id, {
+                                mode: outputSettings.mode,
+                                playbackMode: outputSettings.playbackMode,
+                                conflictMode: outputSettings.conflictMode,
+                                queueLimit: outputSettings.queueLimit
+                            });
+                        }
+                        profile.output = {
+                            mode: outputSettings.mode,
+                            playbackMode: outputSettings.playbackMode,
+                            conflictMode: outputSettings.conflictMode,
+                            queueLimit: outputSettings.queueLimit
+                        };
                         broadcast({ type: 'config', profile: profile, output: outputSettings, ts: Date.now() });
-                        console.log(`[输出] 模式=${outputSettings.mode}`);
+                        console.log(`[输出] 模式=${outputSettings.mode} 播放=${outputSettings.playbackMode} 冲突=${outputSettings.conflictMode} 队列=${outputSettings.queueLimit}`);
                         jsonRes(res, 200, { ok: true, output: outputSettings });
                     } catch (e) {
                         jsonRes(res, 400, { ok: false, error: e.message });
@@ -1225,9 +1610,18 @@ if (require.main === module) {
                 const pid = decodeURIComponent(mm[1]);
                 if (req.method === 'PATCH') {
                     withJson(req, res, (m) => {
-                        const p = store.renameProject(pid, m.name);
+                        const p = store.getProject(pid);
+                        if (!p) { throw new Error('项目不存在'); }
+                        if (m.name !== undefined) {
+                            store.renameProject(pid, m.name);
+                        }
+                        if (m.gameDir !== undefined) {
+                            const dir = String(m.gameDir || '').trim();
+                            p.gameDir = dir ? path.resolve(dir) : '';
+                            store.save();
+                        }
                         reloadActive();
-                        jsonRes(res, 200, { ok: true, project: { id: p.id, name: p.name }, projects: projectSummary() });
+                        jsonRes(res, 200, { ok: true, project: { id: p.id, name: p.name, gameDir: p.gameDir }, projects: projectSummary() });
                     });
                     return;
                 }
@@ -1243,6 +1637,28 @@ if (require.main === module) {
                 const p = store.activeProject();
                 const s = store.activeScene(p);
                 jsonRes(res, 200, { ok: true, name: s.name, rules: s.rules });
+                return;
+            }
+
+            if (url === '/api/scene/import-new' && req.method === 'POST') {
+                withJson(req, res, (m) => {
+                    const obj = JSON.parse(m.content);
+                    const p = store.activeProject();
+                    if (!p) { throw new Error('没有活动项目'); }
+                    let name = String((obj && obj.name) || '导入场景').trim() || '导入场景';
+                    const base = name;
+                    let n = 2;
+                    while (p.scenes.some((s) => s.name === name)) {
+                        name = base + ' (' + n + ')';
+                        n += 1;
+                    }
+                    const scene = store.createScene(p.id, name);
+                    scene.rules = Array.isArray(obj && obj.rules) ? obj.rules : [];
+                    scene.output = (obj && obj.output) || { mode: 'device' };
+                    store.save();
+                    reloadActive();
+                    jsonRes(res, 200, { ok: true, scene: { id: scene.id, name: scene.name, rules: scene.rules.length } });
+                });
                 return;
             }
 
@@ -1571,6 +1987,18 @@ if (require.main === module) {
                 });
                 return;
             }
+            if (url === '/api/transport' && req.method === 'POST') {
+                withJson(req, res, (m) => {
+                    const action = String(m.action || '');
+                    if (!['play', 'pause', 'stop'].includes(action)) { throw new Error('未知的播放控制'); }
+                    setTransport(action);
+                    const status = transportSnapshot();
+                    broadcast({ type: 'transport', transport: status, ts: Date.now() });
+                    jsonRes(res, 200, { ok: true, transport: status });
+                });
+                return;
+            }
+
             if (url === '/api/device/scan' && req.method === 'POST') {
                 runAsync(res, async () => {
                     const devices = await device.scan();
@@ -1580,7 +2008,7 @@ if (require.main === module) {
             }
 
             if (url === '/api/device' && req.method === 'GET') {
-                jsonRes(res, 200, { ok: true, device: device.status(), mode: outputSettings.mode });
+                jsonRes(res, 200, { ok: true, device: device.status(), mode: outputSettings.mode, transport: { state: transport.state } });
                 return;
             }
 

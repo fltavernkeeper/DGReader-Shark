@@ -183,8 +183,42 @@
       </section>
 
       <section class="panel">
-        <div class="hd"><b>通道状态</b><span>规则打算输出什么</span></div>
+        <div class="hd">
+          <b>通道状态</b>
+          <span class="row" style="margin-left:auto;gap:4px">
+            <button class="btn" id="btnTransportPlay" type="button" title="播放/恢复">▶</button>
+            <button class="btn" id="btnTransportPause" type="button" title="暂停">⏸</button>
+            <button class="btn" id="btnTransportStop" type="button" title="停止并清空队列">⏹</button>
+          </span>
+        </div>
         <div class="bd">
+          <div class="row" style="margin-bottom:10px;gap:10px;flex-wrap:wrap">
+            <label class="f" style="width:120px">播放模式
+              <select id="playbackMode">
+                <option value="hold">保持</option>
+                <option value="realtime">实时</option>
+              </select>
+            </label>
+            <label class="f" style="width:120px">冲突时
+              <select id="conflictMode">
+                <option value="skip" selected>跳过</option>
+                <option value="queue">排队</option>
+                <option value="preempt">插队</option>
+                <option value="split">分开排队</option>
+              </select>
+            </label>
+            <label class="f" style="width:90px">队列上限
+              <select id="queueLimit">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <span id="transportStatus" class="note" style="align-self:flex-end"></span>
+          </div>
           <div class="channels">
             <div class="ch"><div class="name">通道 A</div><div class="val" id="chA">0</div><div class="pulse" id="pulseA"></div></div>
             <div class="ch"><div class="name">通道 B</div><div class="val" id="chB">0</div><div class="pulse" id="pulseB"></div></div>
@@ -200,6 +234,25 @@
       </section>
     </div>
   </div>
+  <section class="panel" style="margin-top:16px">
+    <div class="hd"><b>说明</b></div>
+    <div class="bd note" style="line-height:1.8">
+      <b>播放开关</b><br>
+      ▶ 播放/恢复：开始处理规则和播放队列。<br>
+      ⏸ 暂停：立即停止当前振动，保留未完成动作和队列；暂停期间触发的规则继续加入队列。点 ▶ 后先重播暂停前未完成动作，再按队列顺序播放。<br>
+      ⏹ 停止：立即停止并清空当前动作和队列；点 ▶ 前不再发送振动指令。<br><br>
+      <b>播放模式</b><br>
+      保持：条件消失后，当前动作继续播完。<br>
+      实时：条件消失立即停止。以文字为关键词触发的规则可能因为快速翻页而停止播放。<br><br>
+      <b>冲突时</b><br>
+      跳过：当前规则未播放完毕时触发新规则，将跳过新规则。<br>
+      排队：按触发顺序等待；本次动作使用的 A/B 通道都空闲后，再播下一批。<br>
+      插队：立即停止当前动作，播放新触发的规则。<br>
+      分开排队：A/B 通道各自排队，哪个通道空闲就先播哪个，可能不同步。<br><br>
+      队列上限：暂停或忙碌时最多保留的待播动作数，一个通道占用一个动作。队列满后不会再写入。<br><br>
+      兼容性说明：不同制作组使用代码的习惯不同，部分人名或特殊符号可能显示不一致。规则建议避免依赖这些内容。如确需匹配，请使用界面实际显示的文本，并优先选择“包含”。
+    </div>
+  </section>
 </main>
 
 <!-- ============================= 规则 ============================= -->
@@ -240,7 +293,7 @@
                 <option value="expression">高级表达式</option>
               </select>
             </label>
-            <label class="f" style="width:170px" id="opWrap">正则
+            <label class="f" style="width:170px" id="opWrap">匹配方式
               <select id="rOp"></select>
             </label>
             <label class="f" style="flex:1" id="valueWrap">值 / 阈值
@@ -406,6 +459,7 @@
 
 <main id="view-project">
   <div class="grid">
+    <div class="col">
     <section class="panel">
       <div class="hd"><b>项目</b><span>每个游戏一个项目</span></div>
       <div class="bd">
@@ -413,6 +467,10 @@
           <label class="f" style="flex:1">项目名<input id="pName" placeholder="建议填写项目名" /></label>
           <button class="btn" id="btnProjRename">重命名</button>
           <button class="btn danger" id="btnProjDelete">删除</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <label class="f" style="flex:1">游戏目录<input id="pGameDir" readonly placeholder="未绑定游戏目录" /></label>
+          <button class="btn" id="btnProjRelocate">重新定位…</button>
         </div>
         <div class="row" style="margin-top:10px">
           <button class="btn primary" id="btnProjNew">新建项目</button>
@@ -441,9 +499,11 @@
         </div>
       </div>
     </section>
+    </div>
 
+    <div class="col">
     <section class="panel">
-      <div class="hd"><b>游戏插件</b><span>安装 / 移除</span></div>
+      <div class="hd"><b>游戏插件</b></div>
       <div class="bd">
         <div class="row">
           <label class="f" style="flex:1">游戏目录<input id="gDir" placeholder="选择游戏本体目录（RPG Maker 或 Unity 游戏根目录）" /></label>
@@ -465,24 +525,27 @@
     </section>
 
     <section class="panel">
-      <div class="hd"><b>预设 / 规则导入导出</b><span>场景规则或整个项目</span></div>
+      <div class="hd"><b>导入导出</b></div>
       <div class="bd">
         <div class="row">
-          <button class="btn primary" id="btnExportScene">导出当前场景</button>
-          <button class="btn" id="btnImportScene">导入到当前场景</button>
-          <input type="file" id="fileScene" accept=".json" style="display:none" />
-        </div>
-        <div class="row" style="margin-top:10px">
           <button class="btn primary" id="btnExportProject">导出项目</button>
           <button class="btn" id="btnImportProject">导入项目</button>
           <input type="file" id="fileProject" accept=".json" style="display:none" />
         </div>
-        <div class="note" style="margin-top:10px">
-          导出的场景文件就是“预设”，可以导入到其它游戏/场景；
-          导入项目会创建一个新项目（不会覆盖当前项目）。
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="btnExportScene">导出场景</button>
+          <button class="btn" id="btnImportScene">导入场景</button>
+          <input type="file" id="fileScene" accept=".json" style="display:none" />
+        </div>
+        <div class="note" style="margin-top:10px;line-height:1.8">
+          <b>导入导出说明</b><br>
+          导出项目：包含变量表、开关表、全部场景和规则。<br>
+          导出场景：只包含当前场景的规则。<br>
+          导出的项目/场景文件可以作为“预设”分享。导入他人项目后，游戏目录通常无效，请在“项目”里重新定位。变量 ID 也可能不同，变量需要在规则中重新选择或重新读取。
         </div>
       </div>
     </section>
+    </div>
   </div>
 </main>
 
@@ -558,7 +621,7 @@
       <section class="panel">
           <div class="hd"><b>关于</b><span>DGReader 鲨鱼版</span></div>
           <div class="bd note">
-          当前版本：<span id="aboutVersion">v1.09</span><br>
+          当前版本：<span id="aboutVersion">v1.10</span><br>
           最新 Release：<a href="https://github.com/fltavernkeeper/DGReader-Shark/releases" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/releases</a><br>
           Discussions：<a href="https://github.com/fltavernkeeper/DGReader-Shark/discussions" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/discussions</a><br>
           <span class="dim">更新不定期。<br>使用问题、兼容性讨论、经验交流、功能建议、波形与预设，都可以在 Discussions 页面讨论。</span>
@@ -720,14 +783,68 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.09 By FL</span></footer>
+<footer><span class="ver">v1.10 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var state = { vars: {}, switches: {}, tickLines: [], msgLines: [], lastMeta: null, msgRaw: '', tickRaw: '', tickRawOriginal: '', battlelogRaw: '', blLines: [], actors: [], party: [], ruleTotal: 0, device: null };
+  var state = { vars: {}, switches: {}, tickLines: [], msgLines: [], lastMeta: null, msgRaw: '', tickRaw: '', tickRawOriginal: '', battlelogRaw: '', blLines: [], actors: [], party: [], ruleTotal: 0, device: null, transport: { state: 'play', queueLength: 0 } };
+
+  function renderTransportStatus() {
+    var el = $('transportStatus');
+    if (!el) { return; }
+    var st = state.transport || {};
+    var label = st.state === 'pause' ? t('暂停') : (st.state === 'stop' ? t('已停止') : t('播放'));
+    el.textContent = label + (st.state === 'stop' ? '' : ' · ' + t('队列') + ' ' + (st.queueLength || 0) + '/' + (st.queueLimit || 20));
+  }
+
+  function applyTransportState(t) {
+    if (!t) { return; }
+    state.transport = Object.assign({}, state.transport, t);
+    if (t.playbackMode && $('playbackMode')) { $('playbackMode').value = t.playbackMode; }
+    if (t.conflictMode && $('conflictMode')) { $('conflictMode').value = t.conflictMode; }
+    if (t.queueLimit && $('queueLimit')) { $('queueLimit').value = String(t.queueLimit); }
+    if (t.state && t.state !== 'play') {
+      if ($('chA')) { $('chA').textContent = '0'; }
+      if ($('chB')) { $('chB').textContent = '0'; }
+      if ($('pulseA')) { $('pulseA').textContent = ''; }
+      if ($('pulseB')) { $('pulseB').textContent = ''; }
+    }
+    renderTransportStatus();
+  }
+
+  function transportAction(action) {
+    fetch('/api/transport', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: action })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '操作失败'); }
+      applyTransportState(d.transport);
+    }).catch(function (e) { setStatus($('transportStatus'), e.message, false); });
+  }
+
+  function saveTransportSettings() {
+    var prev = output || {};
+    fetch('/api/output', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        mode: prev.mode || 'display',
+        playbackMode: $('playbackMode').value,
+        conflictMode: $('conflictMode').value,
+        queueLimit: Number($('queueLimit').value)
+      })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { throw new Error(d.error || '保存失败'); }
+      output = d.output;
+      applyTransportState({
+        playbackMode: output.playbackMode,
+        conflictMode: output.conflictMode,
+        queueLimit: output.queueLimit
+      });
+    }).catch(function (e) { setStatus($('transportStatus'), e.message, false); });
+  }
   var profile = null;
   var editingId = null;
   var output = { mode: 'display', pipe: '', template: '' };
@@ -1119,16 +1236,17 @@
 
   // ---------------- 规则触发日志 ----------------
   function addLog(a) {
-    state.ruleTotal++;
-    $('ruleCount').textContent = state.ruleTotal + ' 次';
     if (a.type === 'log') {
       var r0 = document.createElement('div');
       r0.className = 'row';
       r0.innerHTML = '<span class="t">' + now() + '</span><span class="off">' + esc(a.text) + '</span>';
       $('log').appendChild(r0);
+      while ($('log').children.length > 300) { $('log').removeChild($('log').firstChild); }
       $('log').scrollTop = $('log').scrollHeight;
       return;
     }
+    state.ruleTotal++;
+    $('ruleCount').textContent = state.ruleTotal + ' 次';
     var row = document.createElement('div');
     row.className = 'row';
     var ch = a.action && a.action.channel ? String(a.action.channel).toUpperCase() : '-';
@@ -1182,6 +1300,11 @@
       if (!d.ok) { throw new Error(d.error || '读取配置失败'); }
       profile = d.profile;
       output = d.output || output;
+      applyTransportState({
+        playbackMode: output.playbackMode,
+        conflictMode: output.conflictMode,
+        queueLimit: output.queueLimit
+      });
       fillVarOptions();
       renderRuleList();
       fillOutput();
@@ -1604,6 +1727,11 @@
     var mode = (output && output.mode) || 'display';
     var radios = document.getElementsByName('outMode');
     for (var i = 0; i < radios.length; i++) { radios[i].checked = (radios[i].value === mode); }
+    applyTransportState({
+      playbackMode: output && output.playbackMode,
+      conflictMode: output && output.conflictMode,
+      queueLimit: output && output.queueLimit
+    });
   }
 
   function saveOutput() {
@@ -1613,7 +1741,12 @@
     fetch('/api/output', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ mode: mode })
+      body: JSON.stringify({
+        mode: mode,
+        playbackMode: $('playbackMode').value,
+        conflictMode: $('conflictMode').value,
+        queueLimit: Number($('queueLimit').value)
+      })
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) { throw new Error(d.error || '保存失败'); }
       output = d.output;
@@ -1771,6 +1904,7 @@
       if (proj) { $('sceneSelect').value = proj.activeScene; }
       if (proj) {
         $('pName').value = proj.name;
+        $('pGameDir').value = proj.gameDir || '';
         $('gDir').value = '';
         var sc = proj.scenes.filter(function (s) { return s.id === proj.activeScene; })[0];
         $('sName').value = sc ? sc.name : '';
@@ -1839,6 +1973,20 @@
       return loadProjects();
     }).then(function () { setStatus($('projStatus'), '已重命名', true); })
       .catch(function (e) { setStatus($('projStatus'), e.message, false); });
+  }
+
+  function projRelocate() {
+    browse('folder').then(function (dir) {
+      if (!dir) { return; }
+      return fetch('/api/projects/' + encodeURIComponent(projectData.active), {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ gameDir: dir })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { throw new Error(d.error || '目录更新失败'); }
+        return loadProjects();
+      }).then(function () { return loadProfile(); })
+        .then(function () { setStatus($('projStatus'), '游戏目录已更新', true); });
+    }).catch(function (e) { setStatus($('projStatus'), e.message, false); });
   }
 
   function projDelete() {
@@ -1986,14 +2134,15 @@
 
   function importSceneFile(file) {
     readFileText(file).then(function (content) {
-      return fetch('/api/scene/import', {
+      return fetch('/api/scene/import-new', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: content, replace: true })
+        body: JSON.stringify({ content: content })
       });
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) { throw new Error(d.error || '导入失败'); }
-      return loadProfile();
-    }).then(function () { setStatus($('projStatus'), '场景规则已导入', true); })
+      return loadProjects();
+    }).then(function () { return loadProfile(); }).then(clearForm)
+      .then(function () { setStatus($('projStatus'), '场景已导入', true); })
       .catch(function (e) { setStatus($('projStatus'), e.message, false); });
   }
 
@@ -2363,6 +2512,23 @@
         break;
       case 'var': state.vars[ev.id] = ev.value; renderVarCurrent(); break;
       case 'switch': state.switches[ev.id] = ev.value; break;
+      case 'transport': applyTransportState(ev.transport); break;
+      case 'channel': {
+        var key = String(ev.channel || '').toUpperCase();
+        if (key === 'A') { $('chA').textContent = String(ev.strength || 0); $('pulseA').textContent = ev.wave || ''; }
+        if (key === 'B') { $('chB').textContent = String(ev.strength || 0); $('pulseB').textContent = ev.wave || ''; }
+        break;
+      }
+      case 'config':
+        if (ev.output) {
+          output = ev.output;
+          applyTransportState({
+            playbackMode: output.playbackMode,
+            conflictMode: output.conflictMode,
+            queueLimit: output.queueLimit
+          });
+        }
+        break;
       default: break;
     }
   }
@@ -2376,6 +2542,8 @@
       try { msg = JSON.parse(e.data); } catch (err) { return; }
       if (msg.type === 'conn') { setConn(msg.connected); if (msg.connected) { loadStateSnapshot(); } return; }
       if (msg.type === 'action' || msg.type === 'log') { addLog(msg); return; }
+      if (msg.type === 'transport') { applyTransportState(msg.transport); return; }
+      if (msg.type === 'channel') { handleEvent({ t: 'channel', channel: msg.channel, strength: msg.strength, wave: msg.wave }); return; }
       if (msg.type === 'device') { renderDevice(msg.device); return; }
       if (msg.type === 'catalog') {
         if (profile) { profile.vars = msg.vars || profile.vars; profile.switches = msg.switches || profile.switches; fillVarOptions(); }
@@ -2433,6 +2601,12 @@
   updateRuleForm();
   updateOutputForm();
   renderConditionExamples();
+  $('btnTransportPlay').onclick = function () { transportAction('play'); };
+  $('btnTransportPause').onclick = function () { transportAction('pause'); };
+  $('btnTransportStop').onclick = function () { transportAction('stop'); };
+  $('playbackMode').onchange = saveTransportSettings;
+  $('conflictMode').onchange = saveTransportSettings;
+  $('queueLimit').onchange = saveTransportSettings;
   var brightenToggle = $('brightenDarkToggle');
   if (brightenToggle) {
     try { brightenToggle.checked = localStorage.getItem('dgreader.brightenDark') !== '0'; } catch (e) { /* ignore */ }
@@ -2481,6 +2655,7 @@
   $('btnProjNew').onclick = projNew;
   $('btnProjRename').onclick = projRename;
   $('btnProjDelete').onclick = projDelete;
+  $('btnProjRelocate').onclick = projRelocate;
   $('btnSceneNew').onclick = sceneNew;
   $('btnSceneRename').onclick = sceneRename;
   $('btnSceneDelete').onclick = sceneDelete;
@@ -2522,6 +2697,7 @@
       if (s.tickerRaw) { state.lastMeta = { kind: s.tickerKind, id: s.tickerId }; showTicker({ text: s.tickerRaw }); }
       if (s.battlelogRaw) { state.blLines = [s.battlelogRaw]; renderBattlelog(); }
       if (s.output) { output = s.output; fillOutput(); }
+      if (s.transport) { applyTransportState(s.transport); }
       if (s.device) { renderDevice(s.device); }
       if (s.ocr) { $('ocrResult').textContent = s.ocr; }
     }).catch(function () {});
