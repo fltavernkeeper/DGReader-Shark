@@ -57,7 +57,7 @@
   .channels{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .ch{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
   .ch .name{color:var(--muted);font-size:12px}.ch .val{font-size:28px;font-weight:700}
-  .ch .pulse{color:var(--muted);font-size:12px}
+  .ch .pulse{color:var(--muted);font-size:12px;min-height:18px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hint{color:var(--muted);font-size:12px;padding:8px 14px;border-top:1px solid var(--line);background:var(--panel2)}
   footer{color:#5b6b7f;font-size:12px;text-align:center;padding:0 20px 24px}
   footer .ver{display:block;margin-top:6px;color:#7d8da3;font-size:11px}
@@ -231,6 +231,24 @@
             </label>
             <span id="transportStatus" class="note" style="align-self:flex-end"></span>
           </div>
+          <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+            <label class="f" style="width:120px"><span>释放间隔 <span style="font-weight:400">(S)</span></span>
+              <select id="releaseGapMode">
+                <option value="zero">0.0</option>
+                <option value="manual">手动</option>
+                <option value="random">随机</option>
+              </select>
+            </label>
+            <label class="f" style="width:90px;align-self:flex-end" id="releaseGapValueWrap">
+              <input id="releaseGapValue" type="number" min="0" max="10" step="0.1" value="0" aria-label="释放间隔秒数" />
+            </label>
+            <label class="f" style="width:90px;display:none" id="releaseGapMinWrap">最低
+              <input id="releaseGapMin" type="number" min="0" max="10" step="0.1" value="0" />
+            </label>
+            <label class="f" style="width:90px;display:none" id="releaseGapMaxWrap">最高
+              <input id="releaseGapMax" type="number" min="0" max="10" step="0.1" value="1" />
+            </label>
+          </div>
           <div class="channels">
             <div class="ch"><div class="name">通道 A</div><div class="val" id="chA">0</div><div class="pulse" id="pulseA"></div></div>
             <div class="ch"><div class="name">通道 B</div><div class="val" id="chB">0</div><div class="pulse" id="pulseB"></div></div>
@@ -278,6 +296,62 @@
               <input id="sensoryReduce" type="number" min="0" max="200" value="10" />
             </label>
           </div>
+          <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+            <label class="f" style="width:120px"><span>释放间隔 <span style="font-weight:400">(S)</span></span>
+              <select id="sensoryReleaseGapMode">
+                <option value="zero">0.0</option>
+                <option value="manual">手动</option>
+                <option value="random">随机</option>
+              </select>
+            </label>
+            <label class="f" style="width:90px;align-self:flex-end" id="sensoryReleaseGapValueWrap">
+              <input id="sensoryReleaseGapValue" type="number" min="0" max="10" step="0.1" value="0" aria-label="释放间隔秒数" />
+            </label>
+            <label class="f" style="width:90px;display:none" id="sensoryReleaseGapMinWrap">最低
+              <input id="sensoryReleaseGapMin" type="number" min="0" max="10" step="0.1" value="0" />
+            </label>
+            <label class="f" style="width:90px;display:none" id="sensoryReleaseGapMaxWrap">最高
+              <input id="sensoryReleaseGapMax" type="number" min="0" max="10" step="0.1" value="1" />
+            </label>
+          </div>
+          <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">
+            <label class="f" style="width:170px">遮断失败惩罚
+              <select id="sensoryLeak">
+                <option value="off">无</option>
+                <option value="pending">待释放队列</option>
+                <option value="current">当前</option>
+                <option value="history">历史</option>
+              </select>
+            </label>
+            <label class="f" style="width:150px">遮断失败时波形增幅
+              <select id="sensoryBoost">
+                <option value="10">10（默认）</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
+                <option value="random">随机</option>
+              </select>
+            </label>
+            <label class="f" style="width:90px;display:none" id="sensoryBoostMinWrap">最低
+              <select id="sensoryBoostMin">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
+              </select>
+            </label>
+            <label class="f" style="width:90px;display:none" id="sensoryBoostMaxWrap">最高
+              <select id="sensoryBoostMax">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="50" selected>50</option>
+              </select>
+            </label>
+          </div>
           <div class="sensory-grid" style="margin-top:12px">
             <div class="sensory-stat">遮断崩溃进度
               <div class="sensory-bar"><span id="sensoryCBar"></span></div>
@@ -297,7 +371,8 @@
           <div class="row" style="margin-top:12px">
             <button class="btn" id="btnSensoryProvoke" type="button">真是毫无挑战呢</button>
             <button class="btn" id="btnSensoryEndure" type="button">设法再坚持会</button>
-            <button class="btn danger" id="btnSensoryAbort" type="button" style="margin-left:auto">中止感官遮断</button>
+            <button class="btn primary" id="btnSensoryStart" type="button" style="margin-left:auto">开始感官遮断</button>
+            <button class="btn danger" id="btnSensoryAbort" type="button">中止感官遮断</button>
           </div>
           <details class="note" style="margin-top:12px">
             <summary>详细规则</summary>
@@ -305,8 +380,11 @@
               模式：普通遮断模式下，遮断成功时所有波形播放的强度自动减少“普通遮断减免”所填写的数值；完全遮断模式下，遮断成功的规则进入待释放队列。<br>
               遮断压力：开启后会提高挑战难度，具体根据规则触发频率进行调整。<br>
               规则触发频率：根据实际情况填写，低为 3 次规则/20 秒，中为 3 次/10 秒，高为 3 次/6 秒；仅在“遮断压力：有”时生效。此处规则指启用了双通道的规则。<br>
+              释放间隔:通道状态中的冲突时选项为“排队”时才生效。遮断进行中也可以随时修改。<br>
+              遮断失败惩罚：启用后在遮断失败时会视情况施加遮断失败惩罚。选项为对应的波形来源。“待释放队列”选项仅完全遮断模式可选。遮断失败惩罚不会影响感官遮断崩溃进度。<br>
               遮断崩溃进度：遮断失败、遮断压力和按钮都会增加进度，进度条达到 100% 时进入感官遮断崩溃。<br>
-              遮断失败率：每次遮断有概率失败，失败时正常播放当前规则且强度 +10。<br>
+              遮断失败率：每次遮断有概率失败，失败时正常播放当前规则且强度 +10（默认）。<br>
+              遮断失败时波形增幅：可以调节遮断失败时的波形强度增加量，默认+10。<br>
               待释放：列表中尚未播放的波形数量。<br>
               胜利：在遮断崩溃进度到达 100% 前，未触发数归 0 视为胜利。<br>
               感官遮断崩溃：崩溃进度达到 100% 时，已播放 + 待释放仍未达到当前难度上限时进入遮断崩溃状态。已加入队列的波形强制顺序播放且强度 +10，播放完仍未达到上限时，继续等待新触发补到上限为止。（桀桀桀，你太依赖感官遮断能力了！）<br>
@@ -608,7 +686,8 @@
           插件作用：从游戏运行时读取已经解码好的文字。<br>
           RPG Maker MV制作的游戏大部分可以读取，Unity制作的游戏并没有完全适配，实在不行请用OCR功能。<br>
           <span style="color:var(--warn)">不要对具有联网的Unity游戏使用该工具，可能被判定为使用外挂！</span><br>
-          安装/移除只改插件文件，不会改写游戏原始数据，并会自动备份。
+          安装/移除只改插件文件，不会改写游戏原始数据，并会自动备份。<br>
+          插件已安装但完全读不到文本？请彻底退出 DGReader（包括后台进程），重新启动后再启动游戏重连。
         </div>
         <div class="note" id="gStatus" style="margin-top:10px">未检查</div>
       </div>
@@ -711,7 +790,7 @@
       <section class="panel">
           <div class="hd"><b>关于</b><span>DGReader 鲨鱼版</span></div>
           <div class="bd note">
-          当前版本：<span id="aboutVersion">v1.11</span><br>
+          当前版本：<span id="aboutVersion">v1.12</span><br>
           最新 Release：<a href="https://github.com/fltavernkeeper/DGReader-Shark/releases" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/releases</a><br>
           Discussions：<a href="https://github.com/fltavernkeeper/DGReader-Shark/discussions" target="_blank" rel="noopener">github.com/fltavernkeeper/DGReader-Shark/discussions</a><br>
           <span class="dim">更新不定期。<br>使用问题、兼容性讨论、经验交流、功能建议、波形与预设，都可以在 Discussions 页面讨论。</span>
@@ -873,7 +952,7 @@
   </div>
 </div>
 
-<footer><span class="ver">v1.11 By FL</span></footer>
+<footer><span class="ver">v1.12 By FL</span></footer>
 
 <script src="i18n.js"></script>
 <script>
@@ -881,7 +960,7 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var state = { vars: {}, switches: {}, tickLines: [], msgLines: [], lastMeta: null, msgRaw: '', tickRaw: '', tickRawOriginal: '', battlelogRaw: '', blLines: [], actors: [], party: [], ruleTotal: 0, device: null, transport: { state: 'play', queueLength: 0 }, sensory: null };
-  var sensorySettings = { mode: 'off', difficulty: 100, pressure: false, frequency: 'mid', reduce: 10, showFailRate: false };
+  var sensorySettings = { mode: 'off', difficulty: 100, pressure: false, frequency: 'mid', reduce: 10, showFailRate: false, leak: 'off', boostMode: 'fixed', boost: 10, boostMin: 10, boostMax: 50 };
 
   function renderTransportStatus() {
     var el = $('transportStatus');
@@ -891,12 +970,47 @@
     el.textContent = label + (st.state === 'stop' ? '' : ' · ' + t('队列') + ' ' + (st.queueLength || 0) + '/' + (st.queueLimit || 20));
   }
 
+  function applyReleaseGapUI(o) {
+    o = o || {};
+    var mode = ['zero', 'manual', 'random'].indexOf(o.releaseGapMode) >= 0 ? o.releaseGapMode : 'zero';
+    function set(prefix) {
+      var m = $(prefix + 'Mode');
+      if (m) { m.value = mode; }
+      var value = Number(o.releaseGap);
+      if (!isFinite(value)) { value = 0; }
+      var lo = Number(o.releaseGapMin);
+      if (!isFinite(lo)) { lo = 0; }
+      var hi = Number(o.releaseGapMax);
+      if (!isFinite(hi)) { hi = 1; }
+      if ($(prefix + 'Value')) { $(prefix + 'Value').value = String(Math.max(0, Math.min(10, value))); }
+      if ($(prefix + 'Min')) { $(prefix + 'Min').value = String(Math.max(0, Math.min(10, lo))); }
+      if ($(prefix + 'Max')) { $(prefix + 'Max').value = String(Math.max(0, Math.min(10, hi))); }
+      if ($(prefix + 'ValueWrap')) { $(prefix + 'ValueWrap').style.display = mode === 'manual' ? '' : 'none'; }
+      if ($(prefix + 'MinWrap')) { $(prefix + 'MinWrap').style.display = mode === 'random' ? '' : 'none'; }
+      if ($(prefix + 'MaxWrap')) { $(prefix + 'MaxWrap').style.display = mode === 'random' ? '' : 'none'; }
+    }
+    set('releaseGap');
+    set('sensoryReleaseGap');
+    updateReleaseGapEnabled();
+  }
+
+  function updateReleaseGapEnabled() {
+    var enabled = !!$('conflictMode') && $('conflictMode').value === 'queue';
+    ['releaseGapMode', 'releaseGapValue', 'releaseGapMin', 'releaseGapMax',
+      'sensoryReleaseGapMode', 'sensoryReleaseGapValue', 'sensoryReleaseGapMin', 'sensoryReleaseGapMax'
+    ].forEach(function (id) {
+      if ($(id)) { $(id).disabled = !enabled; }
+    });
+  }
+
   function applyTransportState(t) {
     if (!t) { return; }
     state.transport = Object.assign({}, state.transport, t);
     if (t.playbackMode && $('playbackMode')) { $('playbackMode').value = t.playbackMode; }
     if (t.conflictMode && $('conflictMode')) { $('conflictMode').value = t.conflictMode; }
     if (t.queueLimit && $('queueLimit')) { $('queueLimit').value = String(t.queueLimit); }
+    if (t.releaseGapMode) { applyReleaseGapUI(t); }
+    updateReleaseGapEnabled();
     if (t.state && t.state !== 'play') {
       if ($('chA')) { $('chA').textContent = '0'; }
       if ($('chB')) { $('chB').textContent = '0'; }
@@ -924,7 +1038,11 @@
         mode: prev.mode || 'display',
         playbackMode: $('playbackMode').value,
         conflictMode: $('conflictMode').value,
-        queueLimit: Number($('queueLimit').value)
+        queueLimit: Number($('queueLimit').value),
+        releaseGapMode: $('releaseGapMode').value,
+        releaseGap: Number($('releaseGapValue').value),
+        releaseGapMin: Number($('releaseGapMin').value),
+        releaseGapMax: Number($('releaseGapMax').value)
       })
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) { throw new Error(d.error || '保存失败'); }
@@ -932,7 +1050,11 @@
       applyTransportState({
         playbackMode: output.playbackMode,
         conflictMode: output.conflictMode,
-        queueLimit: output.queueLimit
+        queueLimit: output.queueLimit,
+        releaseGapMode: output.releaseGapMode,
+        releaseGap: output.releaseGap,
+        releaseGapMin: output.releaseGapMin,
+        releaseGapMax: output.releaseGapMax
       });
     }).catch(function (e) { setStatus($('transportStatus'), e.message, false); });
   }
@@ -950,6 +1072,11 @@
     sensorySettings.frequency = ['low', 'mid', 'high'].indexOf(o.sensoryFrequency) >= 0 ? o.sensoryFrequency : 'mid';
     sensorySettings.reduce = Number.isFinite(Number(o.sensoryReduce)) ? Math.max(0, Math.min(200, Number(o.sensoryReduce))) : 10;
     sensorySettings.showFailRate = !!o.sensoryShowFailRate;
+    sensorySettings.leak = ['off', 'pending', 'current', 'history'].indexOf(o.sensoryLeak) >= 0 ? o.sensoryLeak : 'off';
+    sensorySettings.boostMode = o.sensoryBoostMode === 'random' ? 'random' : 'fixed';
+    sensorySettings.boost = [10, 20, 30, 40, 50].indexOf(Number(o.sensoryBoost)) >= 0 ? Number(o.sensoryBoost) : 10;
+    sensorySettings.boostMin = [10, 20, 30, 40, 50].indexOf(Number(o.sensoryBoostMin)) >= 0 ? Number(o.sensoryBoostMin) : 10;
+    sensorySettings.boostMax = [10, 20, 30, 40, 50].indexOf(Number(o.sensoryBoostMax)) >= 0 ? Number(o.sensoryBoostMax) : 50;
     if ($('sensoryMode')) { $('sensoryMode').value = sensorySettings.mode; }
     if ($('sensoryDifficulty')) { $('sensoryDifficulty').value = String(sensorySettings.difficulty); }
     if ($('sensoryPressure')) { $('sensoryPressure').value = sensorySettings.pressure ? 'on' : 'off'; }
@@ -957,11 +1084,27 @@
     if ($('sensoryFrequency')) { $('sensoryFrequency').disabled = !sensorySettings.pressure; }
     if ($('sensoryReduce')) { $('sensoryReduce').value = String(sensorySettings.reduce); }
     if ($('sensoryShowFail')) { $('sensoryShowFail').checked = sensorySettings.showFailRate; }
+    if ($('sensoryLeak')) {
+      $('sensoryLeak').value = sensorySettings.leak;
+      var pendingOpt = $('sensoryLeak').querySelector('option[value="pending"]');
+      if (pendingOpt) { pendingOpt.disabled = sensorySettings.mode !== 'complete'; }
+    }
+    if ($('sensoryBoost')) { $('sensoryBoost').value = sensorySettings.boostMode === 'random' ? 'random' : String(sensorySettings.boost); }
+    if ($('sensoryBoostMin')) { $('sensoryBoostMin').value = String(sensorySettings.boostMin); }
+    if ($('sensoryBoostMax')) { $('sensoryBoostMax').value = String(sensorySettings.boostMax); }
+    var boostRandom = sensorySettings.boostMode === 'random';
+    if ($('sensoryBoostMinWrap')) { $('sensoryBoostMinWrap').style.display = boostRandom ? '' : 'none'; }
+    if ($('sensoryBoostMaxWrap')) { $('sensoryBoostMaxWrap').style.display = boostRandom ? '' : 'none'; }
+    applyReleaseGapUI(o);
     if ($('sensoryRemaining')) { $('sensoryRemaining').textContent = '0'; }
     sensoryLabels();
     if ($('sensoryFText')) { $('sensoryFText').style.display = sensorySettings.showFailRate ? '' : 'none'; }
     if (!state.sensory) { applySensoryState({ active: false, mode: 'off', C: 0, F: 0, processed: 0, queueCount: 0, difficulty: sensorySettings.difficulty }); }
     if ($('sensorySummary') && sensorySettings.mode === 'off') { $('sensorySummary').textContent = ''; }
+    if ($('btnSensoryStart')) {
+      var st = state.sensory || {};
+      $('btnSensoryStart').disabled = !!st.active || !!st.releasing || sensorySettings.mode === 'off';
+    }
   }
 
   function applySensoryState(s) {
@@ -985,6 +1128,10 @@
       var effF = Number(s.effectiveF !== undefined ? s.effectiveF : s.F) || 0;
       $('sensoryFText').innerHTML = '遮断失败率 <b>' + Math.round(effF) + '%</b>' + (s.forcedNextFail ? ' · 下次强制失败' : '');
     }
+    if ($('sensoryLeak')) {
+      var pendingOpt = $('sensoryLeak').querySelector('option[value="pending"]');
+      if (pendingOpt) { pendingOpt.disabled = mode !== 'complete'; }
+    }
     var stateText = result === 'win' ? '胜利' : (result === 'lost' ? '感官遮断崩溃' : (active ? '进行中' : '未开始'));
     if ($('sensoryState')) { $('sensoryState').textContent = stateText; }
     var label = mode === 'normal' ? '普通遮断' : (mode === 'complete' ? '完全遮断' : '');
@@ -1007,11 +1154,15 @@
         $('conflictMode').disabled = false;
       }
     }
-    ['sensoryMode', 'sensoryDifficulty', 'sensoryPressure', 'sensoryFrequency', 'sensoryReduce'].forEach(function (id) {
+    ['sensoryMode', 'sensoryDifficulty', 'sensoryPressure', 'sensoryFrequency', 'sensoryReduce', 'sensoryLeak', 'sensoryBoost', 'sensoryBoostMin', 'sensoryBoostMax'].forEach(function (id) {
       if ($(id)) { $(id).disabled = locked; }
     });
     if ($('sensoryFrequency')) { $('sensoryFrequency').disabled = locked || $('sensoryPressure').value !== 'on'; }
+    updateReleaseGapEnabled();
     var canPress = active && !result;
+    if ($('btnSensoryStart')) {
+      $('btnSensoryStart').disabled = active || !!s.releasing || !$('sensoryMode') || $('sensoryMode').value === 'off';
+    }
     if ($('btnSensoryProvoke')) { $('btnSensoryProvoke').disabled = !canPress; }
     if ($('btnSensoryEndure')) { $('btnSensoryEndure').disabled = !canPress; }
     if ($('btnSensoryAbort')) { $('btnSensoryAbort').disabled = !(active || !!s.releasing || result || (Number(s.backlash) || 0) > 0); }
@@ -1060,7 +1211,12 @@
       sensoryPressure: $('sensoryPressure').value === 'on',
       sensoryFrequency: $('sensoryFrequency').value,
       sensoryReduce: Number($('sensoryReduce').value),
-      sensoryShowFailRate: $('sensoryShowFail').checked
+      sensoryShowFailRate: $('sensoryShowFail').checked,
+      sensoryLeak: $('sensoryLeak').value,
+      sensoryBoostMode: $('sensoryBoost').value === 'random' ? 'random' : 'fixed',
+      sensoryBoost: $('sensoryBoost').value === 'random' ? 10 : Number($('sensoryBoost').value),
+      sensoryBoostMin: Number($('sensoryBoostMin').value),
+      sensoryBoostMax: Number($('sensoryBoostMax').value)
     };
     return fetch('/api/output', {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -1529,7 +1685,11 @@
       applyTransportState({
         playbackMode: output.playbackMode,
         conflictMode: output.conflictMode,
-        queueLimit: output.queueLimit
+        queueLimit: output.queueLimit,
+        releaseGapMode: output.releaseGapMode,
+        releaseGap: output.releaseGap,
+        releaseGapMin: output.releaseGapMin,
+        releaseGapMax: output.releaseGapMax
       });
       fillVarOptions();
       renderRuleList();
@@ -1956,7 +2116,11 @@
     applyTransportState({
       playbackMode: output && output.playbackMode,
       conflictMode: output && output.conflictMode,
-      queueLimit: output && output.queueLimit
+      queueLimit: output && output.queueLimit,
+      releaseGapMode: output && output.releaseGapMode,
+      releaseGap: output && output.releaseGap,
+      releaseGapMin: output && output.releaseGapMin,
+      releaseGapMax: output && output.releaseGapMax
     });
     applySensorySettings(output || {});
   }
@@ -1972,7 +2136,11 @@
         mode: mode,
         playbackMode: $('playbackMode').value,
         conflictMode: $('conflictMode').value,
-        queueLimit: Number($('queueLimit').value)
+        queueLimit: Number($('queueLimit').value),
+        releaseGapMode: $('releaseGapMode').value,
+        releaseGap: Number($('releaseGapValue').value),
+        releaseGapMin: Number($('releaseGapMin').value),
+        releaseGapMax: Number($('releaseGapMax').value)
       })
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) { throw new Error(d.error || '保存失败'); }
@@ -2753,8 +2921,13 @@
           applyTransportState({
             playbackMode: output.playbackMode,
             conflictMode: output.conflictMode,
-            queueLimit: output.queueLimit
+            queueLimit: output.queueLimit,
+            releaseGapMode: output.releaseGapMode,
+            releaseGap: output.releaseGap,
+            releaseGapMin: output.releaseGapMin,
+            releaseGapMax: output.releaseGapMax
           });
+          applySensorySettings(output);
         }
         break;
       default: break;
@@ -2834,12 +3007,45 @@
   $('btnTransportPause').onclick = function () { transportAction('pause'); };
   $('btnTransportStop').onclick = function () { transportAction('stop'); };
   $('playbackMode').onchange = saveTransportSettings;
-  $('conflictMode').onchange = saveTransportSettings;
-  $('queueLimit').onchange = saveTransportSettings;
-  $('sensoryMode').onchange = function () {
-    if (this.value === 'off') { sensoryAbort(); return; }
-    saveSensorySettings().then(function () { return sensoryStart(); });
+  $('conflictMode').onchange = function () {
+    updateReleaseGapEnabled();
+    saveTransportSettings();
   };
+  $('queueLimit').onchange = saveTransportSettings;
+  ['releaseGapMode', 'releaseGapValue', 'releaseGapMin', 'releaseGapMax'].forEach(function (id) {
+    if ($(id)) { $(id).onchange = saveTransportSettings; }
+  });
+  ['sensoryReleaseGapMode', 'sensoryReleaseGapValue', 'sensoryReleaseGapMin', 'sensoryReleaseGapMax'].forEach(function (id) {
+    if (!$(id)) { return; }
+    $(id).onchange = function () {
+      if ($('releaseGapMode')) { $('releaseGapMode').value = $('sensoryReleaseGapMode').value; }
+      if ($('releaseGapValue')) { $('releaseGapValue').value = $('sensoryReleaseGapValue').value; }
+      if ($('releaseGapMin')) { $('releaseGapMin').value = $('sensoryReleaseGapMin').value; }
+      if ($('releaseGapMax')) { $('releaseGapMax').value = $('sensoryReleaseGapMax').value; }
+      saveTransportSettings();
+    };
+  });
+  $('sensoryMode').onchange = function () {
+    if (this.value === 'off') {
+      if (state.sensory && (state.sensory.active || state.sensory.releasing || state.sensory.result)) {
+        sensoryAbort();
+      } else {
+        saveSensorySettings();
+      }
+      return;
+    }
+    if (this.value === 'normal' && $('sensoryLeak') && $('sensoryLeak').value === 'pending') {
+      $('sensoryLeak').value = 'off';
+    }
+    saveSensorySettings();
+  };
+  if ($('btnSensoryStart')) {
+    $('btnSensoryStart').onclick = function () {
+      if (!state.sensory || (!state.sensory.active && !state.sensory.releasing)) {
+        saveSensorySettings().then(function () { return sensoryStart(); });
+      }
+    };
+  }
   $('sensoryDifficulty').onchange = saveSensorySettings;
   $('sensoryPressure').onchange = saveSensorySettings;
   $('sensoryFrequency').onchange = saveSensorySettings;
@@ -2847,6 +3053,15 @@
   $('sensoryShowFail').onchange = function () {
     saveSensorySettings();
   };
+  $('sensoryLeak').onchange = saveSensorySettings;
+  $('sensoryBoost').onchange = function () {
+    var random = this.value === 'random';
+    if ($('sensoryBoostMinWrap')) { $('sensoryBoostMinWrap').style.display = random ? '' : 'none'; }
+    if ($('sensoryBoostMaxWrap')) { $('sensoryBoostMaxWrap').style.display = random ? '' : 'none'; }
+    saveSensorySettings();
+  };
+  $('sensoryBoostMin').onchange = saveSensorySettings;
+  $('sensoryBoostMax').onchange = saveSensorySettings;
   $('btnSensoryProvoke').onclick = function () { sensoryButton('provoke'); };
   $('btnSensoryEndure').onclick = function () { sensoryButton('endure'); };
   $('btnSensoryAbort').onclick = sensoryAbort;

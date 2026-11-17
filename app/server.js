@@ -500,6 +500,12 @@ function evalRule(rule, context) {
 // ---------------------------------------------------------------------------
 const outputs = [];
 
+function clampNumber(value, min, max, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) { return fallback; }
+    return Math.max(min, Math.min(max, Math.round(n * 10) / 10));
+}
+
 const outputSettings = {
     mode: (profile.output && profile.output.mode) || 'display',
     playbackMode: (profile.output && profile.output.playbackMode) === 'realtime' ? 'realtime' : 'hold',
@@ -509,6 +515,12 @@ const outputSettings = {
     queueLimit: [10, 20, 30, 50, 100, 200].includes(Number(profile.output && profile.output.queueLimit))
         ? Number(profile.output.queueLimit)
         : 20,
+    releaseGapMode: ['zero', 'manual', 'random'].includes(profile.output && profile.output.releaseGapMode)
+        ? profile.output.releaseGapMode
+        : 'zero',
+    releaseGap: clampNumber(profile.output && profile.output.releaseGap, 0, 10, 0),
+    releaseGapMin: clampNumber(profile.output && profile.output.releaseGapMin, 0, 10, 0),
+    releaseGapMax: clampNumber(profile.output && profile.output.releaseGapMax, 0, 10, 1),
     sensoryMode: ['off', 'normal', 'complete'].includes(profile.output && profile.output.sensoryMode)
         ? profile.output.sensoryMode
         : 'off',
@@ -522,7 +534,20 @@ const outputSettings = {
     sensoryReduce: Number.isFinite(Number(profile.output && profile.output.sensoryReduce))
         ? Math.max(0, Math.min(200, Number(profile.output.sensoryReduce)))
         : 10,
-    sensoryShowFailRate: !!(profile.output && profile.output.sensoryShowFailRate)
+    sensoryShowFailRate: !!(profile.output && profile.output.sensoryShowFailRate),
+    sensoryLeak: ['off', 'pending', 'current', 'history'].includes(profile.output && profile.output.sensoryLeak)
+        ? profile.output.sensoryLeak
+        : 'off',
+    sensoryBoostMode: (profile.output && profile.output.sensoryBoostMode) === 'random' ? 'random' : 'fixed',
+    sensoryBoost: [10, 20, 30, 40, 50].includes(Number(profile.output && profile.output.sensoryBoost))
+        ? Number(profile.output.sensoryBoost)
+        : 10,
+    sensoryBoostMin: [10, 20, 30, 40, 50].includes(Number(profile.output && profile.output.sensoryBoostMin))
+        ? Number(profile.output.sensoryBoostMin)
+        : 10,
+    sensoryBoostMax: [10, 20, 30, 40, 50].includes(Number(profile.output && profile.output.sensoryBoostMax))
+        ? Number(profile.output.sensoryBoostMax)
+        : 50
 };
 
 const transport = {
@@ -530,6 +555,7 @@ const transport = {
     queue: [],                  // paired batches waiting
     current: null,              // paired batch currently playing
     currentTimer: null,
+    gapTimer: null,
     paused: null,               // current batch captured by pause
     splitQueues: { A: [], B: [] },
     splitCurrent: { A: null, B: null },
@@ -554,6 +580,10 @@ const sensory = {
     window: [],
     lastAction: 0,
     queue: [],
+    history: [],
+    leakQueue: [],
+    leakBusy: false,
+    leakTimer: null,
     result: '',
     backlash: 0,
     backlashRemaining: 0,
@@ -579,7 +609,9 @@ function sensorySnapshot() {
         streak: sensory.streak,
         processed: sensory.processed,
         played: sensory.played,
-        queueCount: sensory.queue.reduce((n, b) => n + b.actions.length, 0) + sensory.releaseRemaining + sensory.backlogRemaining,
+        queueCount: sensory.queue.reduce((n, b) => n + b.actions.length, 0)
+            + sensory.releaseRemaining
+            + sensory.backlogRemaining,
         result: sensory.result,
         backlash: sensory.backlashRemaining,
         backlashRemaining: sensory.backlashRemaining,
@@ -633,6 +665,157 @@ function sensoryCap() {
 
 function sensoryF() {
     return Math.min(sensoryCap(), sensoryStage() + sensoryExp() + sensory.F);
+}
+
+function releaseGapSeconds() {
+    const mode = outputSettings.releaseGapMode;
+    if (mode === 'random') {
+        const lo = clampNumber(outputSettings.releaseGapMin, 0, 10, 0);
+        const hi = clampNumber(outputSettings.releaseGapMax, 0, 10, 0);
+        const min = Math.min(lo, hi);
+        const max = Math.max(lo, hi);
+        return clampNumber(min + Math.random() * (max - min), 0, 10, 0);
+    }
+    if (mode === 'manual') { return clampNumber(outputSettings.releaseGap, 0, 10, 0); }
+    return 0;
+}
+
+function sensoryBoostStep() {
+    if (outputSettings.sensoryBoostMode === 'random') {
+        const values = [10, 20, 30, 40, 50];
+        const lo = Math.min(outputSettings.sensoryBoostMin, outputSettings.sensoryBoostMax);
+        const hi = Math.max(outputSettings.sensoryBoostMin, outputSettings.sensoryBoostMax);
+        const pool = values.filter((v) => v >= lo && v <= hi);
+        if (pool.length) { return pool[Math.floor(Math.random() * pool.length)]; }
+    }
+    return outputSettings.sensoryBoost;
+}
+
+function boostActions(actions) {
+    const boost = sensoryBoostStep();
+    return actions.map((a) => Object.assign({}, a, {
+        strength: Math.min(200, (Number(a.strength) || 0) + boost)
+    }));
+}
+
+function sensoryRemember(rule, actions, ctx) {
+    sensory.history.push({
+        rule,
+        actions: actions.map((a) => Object.assign({}, a)),
+        ctx
+    });
+}
+
+const LEAK_WEIGHTS = {
+    30: [95, 5, 0, 0, 0],
+    40: [90, 7, 3, 0, 0],
+    50: [80, 13, 6, 1, 0],
+    60: [70, 16, 9, 4, 1],
+    70: [60, 17, 12, 8, 3],
+    80: [50, 16, 15, 12, 7],
+    90: [40, 15, 17, 14, 14]
+};
+
+function sensoryLeakCount(C) {
+    if (C < 30) { return 0; }
+    const key = Math.min(90, Math.floor(C / 10) * 10);
+    const weights = LEAK_WEIGHTS[key] || LEAK_WEIGHTS[90];
+    const total = weights.reduce((n, x) => n + x, 0);
+    let value = Math.random() * total;
+    for (let i = 0; i < weights.length; i += 1) {
+        value -= weights[i];
+        if (value < 0) { return i; }
+    }
+    return weights.length - 1;
+}
+
+function sensoryTakeLeaks(rule, currentActions, ctx, C) {
+    const mode = outputSettings.sensoryLeak;
+    if (mode === 'off') { return []; }
+    const wanted = sensoryLeakCount(C);
+    if (wanted <= 0) { return []; }
+    const groups = [];
+    if (mode === 'pending') {
+        const take = Math.min(wanted, sensory.queue.length);
+        for (let i = 0; i < take; i += 1) {
+            const idx = Math.floor(Math.random() * sensory.queue.length);
+            const batch = sensory.queue.splice(idx, 1)[0];
+            sensory.played += batch.actions.length;
+            groups.push({ rule: batch.rule, actions: batch.actions, ctx: batch.ctx, pending: true });
+        }
+        return groups;
+    }
+    if (mode === 'history') {
+        if (!sensory.history.length) { return []; }
+        for (let i = 0; i < wanted; i += 1) {
+            const batch = sensory.history[Math.floor(Math.random() * sensory.history.length)];
+            groups.push({
+                rule: batch.rule,
+                actions: batch.actions.map((a) => Object.assign({}, a)),
+                ctx: batch.ctx,
+                pending: false
+            });
+        }
+        return groups;
+    }
+    for (let i = 0; i < wanted; i += 1) {
+        groups.push({
+            rule,
+            actions: currentActions.map((a) => Object.assign({}, a)),
+            ctx,
+            pending: false
+        });
+    }
+    return groups;
+}
+
+function sensoryPumpLeaks() {
+    sensory.leakTimer = null;
+    if (sensory.leakBusy || !sensory.leakQueue.length) { return; }
+    if (!sensory.active || sensory.result) {
+        sensory.leakQueue = [];
+        return;
+    }
+    const item = sensory.leakQueue.shift();
+    const actions = boostActions(item.actions);
+    sensory.leakBusy = true;
+    const detail = actions.map((a) => {
+        const ch = a.channel ? a.channel.toUpperCase() : '?';
+        return ch + ' 强度' + (a.strength !== undefined ? a.strength : '-') + ' 波形' + (a.wave || a.pulse || '-');
+    }).join(' / ');
+    controlLog('遮断失败惩罚：' + item.rule.id + ' ' + detail);
+    for (const action of actions) { deliverActions(item.rule, action, item.ctx, 'ON'); }
+    scheduleSensoryDirectClear(item.rule, actions);
+    const duration = batchDuration(actions);
+    const wait = (Number.isFinite(duration) && duration > 0 ? duration * 1000 : 0)
+        + releaseGapSeconds() * 1000 + 20;
+    sensory.leakTimer = setTimeout(() => {
+        sensory.leakBusy = false;
+        sensoryPumpLeaks();
+    }, wait);
+}
+
+function sensoryQueueLeakGroups(groups, currentDuration) {
+    if (!groups.length) { return; }
+    sensory.leakQueue.push(...groups);
+    if (!sensory.leakBusy && !sensory.leakTimer) {
+        const wait = (Number.isFinite(currentDuration) && currentDuration > 0
+            ? currentDuration * 1000 : 0) + releaseGapSeconds() * 1000 + 20;
+        sensory.leakTimer = setTimeout(sensoryPumpLeaks, wait);
+    }
+}
+
+function sensoryQueueLeaks(rule, currentActions, ctx, currentDuration) {
+    sensoryQueueLeakGroups(sensoryTakeLeaks(rule, currentActions, ctx, sensory.C), currentDuration);
+}
+
+function sensoryClearLeaks() {
+    sensory.leakQueue = [];
+    sensory.leakBusy = false;
+    if (sensory.leakTimer) {
+        clearTimeout(sensory.leakTimer);
+        sensory.leakTimer = null;
+    }
 }
 
 function sensoryAddC(delta) {
@@ -715,6 +898,7 @@ function sensoryCheckpoint() {
 }
 
 function sensoryReset() {
+    sensoryClearLeaks();
     sensory.active = false;
     sensory.mode = 'off';
     sensory.releasing = false;
@@ -728,6 +912,10 @@ function sensoryReset() {
     sensory.window = [];
     sensory.lastAction = 0;
     sensory.queue = [];
+    sensory.history = [];
+    sensory.leakQueue = [];
+    sensory.leakBusy = false;
+    if (sensory.leakTimer) { clearTimeout(sensory.leakTimer); sensory.leakTimer = null; }
     sensory.result = '';
     sensory.backlash = 0;
     sensory.backlashRemaining = 0;
@@ -783,7 +971,7 @@ function sensoryAbort(silent) {
 
 function sensoryFinishRelease() {
     if (!sensory.releasing) { return; }
-    if (sensory.releaseRemaining > 0 || sensory.backlogRemaining > 0 || sensory.backlashRemaining > 0 || transport.current || transport.queue.length) { return; }
+    if (sensory.releaseRemaining > 0 || sensory.backlogRemaining > 0 || sensory.backlashRemaining > 0 || transport.current || transport.queue.length || transport.gapTimer) { return; }
     sensory.releasing = false;
     outputSettings.conflictMode = sensory.savedConflict || 'skip';
     outputSettings.queueLimit = sensory.savedQueueLimit || 20;
@@ -793,6 +981,7 @@ function sensoryFinishRelease() {
 }
 
 function sensoryCollapse() {
+    sensoryClearLeaks();
     const pending = sensory.queue.splice(0);
     sensory.releaseTotal = pending.reduce((n, b) => n + b.actions.length, 0);
     sensory.releaseRemaining = sensory.releaseTotal;
@@ -807,11 +996,10 @@ function sensoryCollapse() {
     outputSettings.queueLimit = sensory.difficulty;
     transport.state = 'play';
     transport.current = null;
+    clearGapTimer();
     transport.queue = [];
     for (const batch of pending) {
-        const actions = batch.actions.map((a) => Object.assign({}, a, {
-            strength: Math.min(200, (Number(a.strength) || 0) + 10)
-        }));
+        const actions = boostActions(batch.actions);
         transport.queue.push({
             rule: batch.rule,
             actions,
@@ -828,6 +1016,7 @@ function sensoryCollapse() {
 }
 
 function sensoryWin() {
+    sensoryClearLeaks();
     sensory.result = 'win';
     sensory.active = false;
     outputSettings.sensoryMode = 'off';
@@ -863,12 +1052,15 @@ function sensoryTrigger(rule, action, ctx) {
         sensory.streak += 1;
         sensoryAddF(Math.min(5, sensory.streak));
         sensoryAddC(sensoryCIncrement(sensory.streak - 1));
-        const boosted = actions.map((a) => Object.assign({}, a, {
-            strength: Math.min(200, (Number(a.strength) || 0) + 10)
-        }));
+        const currentDuration = batchDuration(actions);
+        const boosted = boostActions(actions);
         deliverActions(rule, boosted, ctx, 'ON');
         sensory.played += count;
         scheduleSensoryDirectClear(rule, boosted);
+        const leakGroups = sensoryTakeLeaks(rule, actions, ctx, sensory.C);
+        if (leakGroups.length) { controlLog('遮断失败触发惩罚：' + leakGroups.length + ' 组'); }
+        sensoryRemember(rule, actions, ctx);
+        sensoryQueueLeakGroups(leakGroups, currentDuration);
     } else {
         sensory.streak = 0;
         const stored = actions.map((a) => {
@@ -882,6 +1074,7 @@ function sensoryTrigger(rule, action, ctx) {
             deliverActions(rule, stored, ctx, 'ON');
             sensory.played += count;
             scheduleSensoryDirectClear(rule, stored);
+            sensoryRemember(rule, stored, ctx);
         } else {
             sensory.queue.push({ rule, actions: stored, ctx });
         }
@@ -964,6 +1157,10 @@ function applyOutputSettings(o) {
     outputSettings.playbackMode = src.playbackMode === 'realtime' ? 'realtime' : 'hold';
     outputSettings.conflictMode = normalizeConflictMode(src.conflictMode);
     outputSettings.queueLimit = normalizeQueueLimit(src.queueLimit);
+    outputSettings.releaseGapMode = ['zero', 'manual', 'random'].includes(src.releaseGapMode) ? src.releaseGapMode : 'zero';
+    outputSettings.releaseGap = clampNumber(src.releaseGap, 0, 10, 0);
+    outputSettings.releaseGapMin = clampNumber(src.releaseGapMin, 0, 10, 0);
+    outputSettings.releaseGapMax = clampNumber(src.releaseGapMax, 0, 10, 1);
     outputSettings.sensoryMode = normalizeSensoryMode(src.sensoryMode);
     outputSettings.sensoryDifficulty = normalizeSensoryDifficulty(src.sensoryDifficulty);
     outputSettings.sensoryPressure = !!src.sensoryPressure;
@@ -972,6 +1169,11 @@ function applyOutputSettings(o) {
         ? Math.max(0, Math.min(200, Number(src.sensoryReduce)))
         : 10;
     outputSettings.sensoryShowFailRate = !!src.sensoryShowFailRate;
+    outputSettings.sensoryLeak = ['off', 'pending', 'current', 'history'].includes(src.sensoryLeak) ? src.sensoryLeak : 'off';
+    outputSettings.sensoryBoostMode = src.sensoryBoostMode === 'random' ? 'random' : 'fixed';
+    outputSettings.sensoryBoost = [10, 20, 30, 40, 50].includes(Number(src.sensoryBoost)) ? Number(src.sensoryBoost) : 10;
+    outputSettings.sensoryBoostMin = [10, 20, 30, 40, 50].includes(Number(src.sensoryBoostMin)) ? Number(src.sensoryBoostMin) : 10;
+    outputSettings.sensoryBoostMax = [10, 20, 30, 40, 50].includes(Number(src.sensoryBoostMax)) ? Number(src.sensoryBoostMax) : 50;
 }
 
 function persistOutputSettings() {
@@ -983,12 +1185,21 @@ function persistOutputSettings() {
         playbackMode: outputSettings.playbackMode,
         conflictMode: outputSettings.conflictMode,
         queueLimit: outputSettings.queueLimit,
+        releaseGapMode: outputSettings.releaseGapMode,
+        releaseGap: outputSettings.releaseGap,
+        releaseGapMin: outputSettings.releaseGapMin,
+        releaseGapMax: outputSettings.releaseGapMax,
         sensoryMode: outputSettings.sensoryMode,
         sensoryDifficulty: outputSettings.sensoryDifficulty,
         sensoryPressure: outputSettings.sensoryPressure,
         sensoryFrequency: outputSettings.sensoryFrequency,
         sensoryReduce: outputSettings.sensoryReduce,
-        sensoryShowFailRate: outputSettings.sensoryShowFailRate
+        sensoryShowFailRate: outputSettings.sensoryShowFailRate,
+        sensoryLeak: outputSettings.sensoryLeak,
+        sensoryBoostMode: outputSettings.sensoryBoostMode,
+        sensoryBoost: outputSettings.sensoryBoost,
+        sensoryBoostMin: outputSettings.sensoryBoostMin,
+        sensoryBoostMax: outputSettings.sensoryBoostMax
     });
     store.save();
 }
@@ -1158,6 +1369,10 @@ function transportSnapshot() {
         playbackMode: outputSettings.playbackMode,
         conflictMode: outputSettings.conflictMode,
         queueLimit: outputSettings.queueLimit,
+        releaseGapMode: outputSettings.releaseGapMode,
+        releaseGap: outputSettings.releaseGap,
+        releaseGapMin: outputSettings.releaseGapMin,
+        releaseGapMax: outputSettings.releaseGapMax,
         queueLength: queueCount(),
         current: transport.current ? transport.current.rule.id : '',
         paused: transport.paused ? transport.paused.rule.id : ''
@@ -1180,6 +1395,13 @@ function clearTransportTimer() {
     }
 }
 
+function clearGapTimer() {
+    if (transport.gapTimer) {
+        clearTimeout(transport.gapTimer);
+        transport.gapTimer = null;
+    }
+}
+
 function clearSplitTimers() {
     for (const ch of ['A', 'B']) {
         if (transport.splitTimer[ch]) {
@@ -1198,6 +1420,7 @@ function stopTransportOutput() {
 
 function clearTransportState() {
     stopTransportOutput();
+    clearGapTimer();
     transport.current = null;
     transport.paused = null;
     transport.queue = [];
@@ -1226,7 +1449,19 @@ function finishPaired() {
     }
     for (const ch of batchChannels(batch.actions)) { broadcastEndedChannel(ch); }
     broadcastTransport();
-    processPairedQueue();
+    if (transport.state === 'play' && outputSettings.conflictMode === 'queue' && transport.queue.length) {
+        const gap = releaseGapSeconds();
+        if (gap > 0) {
+            transport.gapTimer = setTimeout(() => {
+                transport.gapTimer = null;
+                processPairedQueue();
+            }, gap * 1000);
+        } else {
+            processPairedQueue();
+        }
+    } else {
+        processPairedQueue();
+    }
     sensoryFinishRelease();
 }
 
@@ -1247,7 +1482,7 @@ function dispatchPaired(batch) {
 }
 
 function processPairedQueue() {
-    if (transport.state !== 'play' || transport.current) { return; }
+    if (transport.state !== 'play' || transport.current || transport.gapTimer) { return; }
     const next = transport.queue.shift();
     if (next) { dispatchPaired(next); }
 }
@@ -1283,6 +1518,7 @@ function enqueuePaired(rule, action, ctx) {
     }
     if (busy && mode === 'preempt') {
         clearTransportTimer();
+        clearGapTimer();
         transport.current = null;
         stopTransportOutput();
         transport.queue.unshift(batch);
@@ -1435,9 +1671,7 @@ function fire(rule, action, ctx, edge) {
         const actions = actionList(action);
         if (!actions.length) { return; }
         const allowed = Math.min(actions.length, sensory.backlashRemaining);
-        const boosted = actions.slice(0, allowed).map((a) => Object.assign({}, a, {
-            strength: Math.min(200, (Number(a.strength) || 0) + 10)
-        }));
+        const boosted = boostActions(actions.slice(0, allowed));
         sensory.backlashRemaining -= allowed;
         sensory.backlogRemaining += allowed;
         transport.queue.push({
@@ -1489,6 +1723,7 @@ function setTransport(action) {
     if (action === 'pause') {
         if (transport.state === 'pause') { return; }
         transport.state = 'pause';
+        clearGapTimer();
         transport.paused = transport.current;
         transport.current = null;
         stopTransportOutput();
@@ -1990,8 +2225,24 @@ if (require.main === module) {
                         if (o.conflictMode !== undefined) {
                             outputSettings.conflictMode = normalizeConflictMode(o.conflictMode);
                         }
+                        if (outputSettings.conflictMode !== 'queue') {
+                            clearGapTimer();
+                            processPairedQueue();
+                        }
                         if (o.queueLimit !== undefined) {
                             outputSettings.queueLimit = normalizeQueueLimit(o.queueLimit);
+                        }
+                        if (o.releaseGapMode !== undefined) {
+                            outputSettings.releaseGapMode = ['zero', 'manual', 'random'].includes(o.releaseGapMode) ? o.releaseGapMode : 'zero';
+                        }
+                        if (o.releaseGap !== undefined) {
+                            outputSettings.releaseGap = clampNumber(o.releaseGap, 0, 10, 0);
+                        }
+                        if (o.releaseGapMin !== undefined) {
+                            outputSettings.releaseGapMin = clampNumber(o.releaseGapMin, 0, 10, 0);
+                        }
+                        if (o.releaseGapMax !== undefined) {
+                            outputSettings.releaseGapMax = clampNumber(o.releaseGapMax, 0, 10, 1);
                         }
                         if (o.sensoryMode !== undefined) {
                             outputSettings.sensoryMode = normalizeSensoryMode(o.sensoryMode);
@@ -2011,6 +2262,25 @@ if (require.main === module) {
                         if (o.sensoryShowFailRate !== undefined) {
                             outputSettings.sensoryShowFailRate = !!o.sensoryShowFailRate;
                         }
+                        if (o.sensoryLeak !== undefined) {
+                            outputSettings.sensoryLeak = ['off', 'pending', 'current', 'history'].includes(o.sensoryLeak)
+                                ? o.sensoryLeak : 'off';
+                        }
+                        if (o.sensoryBoostMode !== undefined) {
+                            outputSettings.sensoryBoostMode = o.sensoryBoostMode === 'random' ? 'random' : 'fixed';
+                        }
+                        if (o.sensoryBoost !== undefined) {
+                            const boost = Number(o.sensoryBoost);
+                            outputSettings.sensoryBoost = [10, 20, 30, 40, 50].includes(boost) ? boost : 10;
+                        }
+                        if (o.sensoryBoostMin !== undefined) {
+                            const boost = Number(o.sensoryBoostMin);
+                            outputSettings.sensoryBoostMin = [10, 20, 30, 40, 50].includes(boost) ? boost : 10;
+                        }
+                        if (o.sensoryBoostMax !== undefined) {
+                            const boost = Number(o.sensoryBoostMax);
+                            outputSettings.sensoryBoostMax = [10, 20, 30, 40, 50].includes(boost) ? boost : 50;
+                        }
                         const proj = store.activeProject();
                         const scene = store.activeScene(proj);
                         if (proj && scene) {
@@ -2019,12 +2289,21 @@ if (require.main === module) {
                                 playbackMode: outputSettings.playbackMode,
                                 conflictMode: outputSettings.conflictMode,
                                 queueLimit: outputSettings.queueLimit,
+                                releaseGapMode: outputSettings.releaseGapMode,
+                                releaseGap: outputSettings.releaseGap,
+                                releaseGapMin: outputSettings.releaseGapMin,
+                                releaseGapMax: outputSettings.releaseGapMax,
                                 sensoryMode: outputSettings.sensoryMode,
                                 sensoryDifficulty: outputSettings.sensoryDifficulty,
                                 sensoryPressure: outputSettings.sensoryPressure,
                                 sensoryFrequency: outputSettings.sensoryFrequency,
                                 sensoryReduce: outputSettings.sensoryReduce,
-                                sensoryShowFailRate: outputSettings.sensoryShowFailRate
+                                sensoryShowFailRate: outputSettings.sensoryShowFailRate,
+                                sensoryLeak: outputSettings.sensoryLeak,
+                                sensoryBoostMode: outputSettings.sensoryBoostMode,
+                                sensoryBoost: outputSettings.sensoryBoost,
+                                sensoryBoostMin: outputSettings.sensoryBoostMin,
+                                sensoryBoostMax: outputSettings.sensoryBoostMax
                             });
                         }
                         profile.output = {
@@ -2032,12 +2311,21 @@ if (require.main === module) {
                             playbackMode: outputSettings.playbackMode,
                             conflictMode: outputSettings.conflictMode,
                             queueLimit: outputSettings.queueLimit,
+                            releaseGapMode: outputSettings.releaseGapMode,
+                            releaseGap: outputSettings.releaseGap,
+                            releaseGapMin: outputSettings.releaseGapMin,
+                            releaseGapMax: outputSettings.releaseGapMax,
                             sensoryMode: outputSettings.sensoryMode,
                             sensoryDifficulty: outputSettings.sensoryDifficulty,
                             sensoryPressure: outputSettings.sensoryPressure,
                             sensoryFrequency: outputSettings.sensoryFrequency,
                             sensoryReduce: outputSettings.sensoryReduce,
-                            sensoryShowFailRate: outputSettings.sensoryShowFailRate
+                            sensoryShowFailRate: outputSettings.sensoryShowFailRate,
+                            sensoryLeak: outputSettings.sensoryLeak,
+                            sensoryBoostMode: outputSettings.sensoryBoostMode,
+                            sensoryBoost: outputSettings.sensoryBoost,
+                            sensoryBoostMin: outputSettings.sensoryBoostMin,
+                            sensoryBoostMax: outputSettings.sensoryBoostMax
                         };
                         broadcast({ type: 'config', profile: profile, output: outputSettings, ts: Date.now() });
                         console.log(`[输出] 模式=${outputSettings.mode} 播放=${outputSettings.playbackMode} 冲突=${outputSettings.conflictMode} 队列=${outputSettings.queueLimit}`);

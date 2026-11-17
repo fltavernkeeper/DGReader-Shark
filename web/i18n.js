@@ -382,6 +382,15 @@
     '胜利：在遮断崩溃进度到达 100% 前，未触发数归 0 视为胜利。': '勝利：遮断崩壊進行が100%に達する前に、未発火数が0になれば勝利です。',
     '感官遮断崩溃：崩溃进度达到 100% 时，已播放 + 待释放仍未达到当前难度上限时进入遮断崩溃状态。已加入队列的波形强制顺序播放且强度 +10，播放完仍未达到上限时，继续等待新触发补到上限为止。（桀桀桀，你太依赖感官遮断能力了！）': '感覚遮断崩壊：崩壊進行が100%に達した時点で、再生済み＋解放待ちが現在の難易度上限に達していない場合、遮断崩壊状態に入ります。キューに入った波形は強制的に順番に再生され、強度+10されます。再生後も上限に達していない場合は、新しい発火で上限まで補充されるまで待機します。（ふふふ、感覚遮断に頼りすぎたな！）',
     '中止感官遮断：强制结束感官遮断，停止播放，清空队列。': '感覚遮断を中止：感覚遮断を強制終了し、再生を停止してキューを空にします。',
+    '插件已安装但完全读不到文本？请彻底退出 DGReader（包括后台进程），重新启动后再启动游戏重连。': 'プラグインはインストール済みなのにテキストをまったく読み取れない場合は、DGReader（バックグラウンドプロセスを含む）を完全に終了してから再起動し、ゲームを起動し直して再接続してください。',
+    '释放间隔': '解放間隔', '手动': '手動', '遮断失败惩罚': '遮断失敗ペナルティ', '待释放队列': '解放待ちキュー', '当前': '現在', '历史': '履歴', '遮断失败时波形增幅': '遮断失敗時の波形ブースト', '最低': '最小', '最高': '最大', '秒': '秒',
+    '仅冲突模式“排队”生效': '競合モード「キュー」のみ有効',
+    '开始感官遮断': '感覚遮断を開始',
+    '10（默认）': '10（デフォルト）',
+    '释放间隔:通道状态中的冲突时选项为“排队”时才生效。遮断进行中也可以随时修改。': '解放間隔：チャンネル状態の「競合時」が「キュー」のときのみ有効です。感覚遮断中もいつでも変更できます。',
+    '遮断失败惩罚：启用后在遮断失败时会视情况施加遮断失败惩罚。选项为对应的波形来源。“待释放队列”选项仅完全遮断模式可选。遮断失败惩罚不会影响感官遮断崩溃进度。': '遮断失敗ペナルティ：有効にすると遮断失敗時に状況に応じて遮断失敗ペナルティを適用します。オプションは対応する波形ソースです。「解放待ちキュー」は完全遮断モードでのみ選択できます。遮断失敗ペナルティは感覚遮断崩壊進行に影響しません。',
+    '遮断失败率：每次遮断有概率失败，失败时正常播放当前规则且强度 +10（默认）。': '遮断失敗率：遮断のたびに失敗する可能性があります。失敗時は現在のルールを通常再生し、強度+10（デフォルト）します。',
+    '遮断失败时波形增幅：可以调节遮断失败时的波形强度增加量，默认+10。': '遮断失敗時の波形ブースト：遮断失敗時の波形強度の増加量を調整できます。デフォルトは+10です。',
   });
   Object.assign(EN, {
     '语言': 'Language',
@@ -620,6 +629,15 @@
     '胜利：在遮断崩溃进度到达 100% 前，未触发数归 0 视为胜利。': 'Victory: Before masking collapse progress reaches 100%, reducing Not triggered to 0 counts as victory.',
     '感官遮断崩溃：崩溃进度达到 100% 时，已播放 + 待释放仍未达到当前难度上限时进入遮断崩溃状态。已加入队列的波形强制顺序播放且强度 +10，播放完仍未达到上限时，继续等待新触发补到上限为止。（桀桀桀，你太依赖感官遮断能力了！）': 'Sensory deprivation collapse: If Played + Pending release has not reached the current difficulty limit when collapse progress reaches 100%, collapse begins. Queued waveforms are forced to play in order with strength +10; if the limit is still not reached after playback, wait for new triggers to fill the remaining amount. (Hehehe, you relied too much on sensory deprivation!)',
     '中止感官遮断：强制结束感官遮断，停止播放，清空队列。': 'Abort sensory deprivation: Force-end sensory deprivation, stop playback, and clear the queue.',
+    '插件已安装但完全读不到文本？请彻底退出 DGReader（包括后台进程），重新启动后再启动游戏重连。': 'Plugin installed but no text at all? Fully exit DGReader (including background processes), restart it, then relaunch the game to reconnect.',
+    '释放间隔': 'Release gap', '手动': 'Manual', '遮断失败惩罚': 'Failure penalty', '待释放队列': 'Pending release', '当前': 'Current', '历史': 'History', '遮断失败时波形增幅': 'Failure waveform boost', '最低': 'Min', '最高': 'Max', '秒': 'sec',
+    '仅冲突模式“排队”生效': 'Only active in Queue conflict mode',
+    '开始感官遮断': 'Start sensory deprivation',
+    '10（默认）': '10 (default)',
+    '释放间隔:通道状态中的冲突时选项为“排队”时才生效。遮断进行中也可以随时修改。': 'Release gap: only effective when Conflict in Channel Status is set to Queue. It can be changed at any time during sensory deprivation.',
+    '遮断失败惩罚：启用后在遮断失败时会视情况施加遮断失败惩罚。选项为对应的波形来源。“待释放队列”选项仅完全遮断模式可选。遮断失败惩罚不会影响感官遮断崩溃进度。': 'Failure penalty: when enabled, applies a failure penalty on masking failure depending on the situation. Options select the waveform source. Pending release is available only in complete masking. Failure penalties do not affect sensory collapse progress.',
+    '遮断失败率：每次遮断有概率失败，失败时正常播放当前规则且强度 +10（默认）。': 'Masking failure rate: each masking attempt may fail; on failure, the current rule plays normally with strength +10 (default).',
+    '遮断失败时波形增幅：可以调节遮断失败时的波形强度增加量，默认+10。': 'Failure waveform boost: adjusts the strength increase applied on masking failure; default +10.',
   });
 
   var DICTS = { ja: JA, en: EN };
