@@ -24,9 +24,4 @@ redistributed with this archive.
 UnityDoorstop 4.6.0 by NeighTools, licensed under LGPL-2.1.
 The full license text is in app/unity/doorstop/LICENSE.
 
-4. Other components
--------------------
-This archive does not include third-party tool binaries, assets,
-game assets, fonts, or other third-party game files.
-
 DGReader itself is licensed under GPL-3.0-only; see LICENSE.txt.

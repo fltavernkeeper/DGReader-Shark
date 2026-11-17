@@ -20,8 +20,5 @@ The bundled node.exe is a separate third-party runtime (Node.js
 v24.19.0, MIT); see THIRD-PARTY-NOTICES.txt and
 licenses/node-LICENSE.txt.
 
-No third-party tool binaries, assets, extracted strings, or plugin
-source are included in this archive.
-
 License: GPL-3.0-only.  Full text: LICENSE.txt.
 Copyright (C) 2026 FL.
