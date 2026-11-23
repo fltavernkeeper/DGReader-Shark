@@ -51,6 +51,12 @@ class OpossumDevice {
         this.channels = { A: newChannel(), B: newChannel() };
         this.sequences = { A: null, B: null };
         this.sequenceToken = { A: 0, B: 0 };
+        this.testToken = 0;
+    }
+
+    nextTestOwner() {
+        this.testToken += 1;
+        return 'test:' + this.testToken;
     }
 
     log(msg) { console.log(`[设备] ${msg}`); }
@@ -308,25 +314,49 @@ class OpossumDevice {
         }, owner);
     }
 
-    async test(a, b, waveA, waveB, seconds) {
+    async testChannel(ch, strength, wave, seconds) {
         if (!this.connected) { throw new Error('设备未连接'); }
+        ch = String(ch || '').toUpperCase();
+        if (!this.channels[ch]) { throw new Error('未知通道'); }
+        const sec = Math.max(0.05, Math.min(600, Number(seconds) || 3));
+        const picked = this.waves.pickIfRandom(wave);
+        this.startChannel(ch, { strength: strength, wave: picked, seconds: sec }, this.nextTestOwner());
+        return {
+            channel: ch,
+            strength: strength,
+            wave: this.waves.normalize(picked),
+            seconds: sec
+        };
+    }
+
+    async test(a, b, waveA, waveB, secondsA, secondsB) {
+        if (!this.connected) { throw new Error('设备未连接'); }
+        const sa = Number(secondsA) > 0 ? Number(secondsA) : (Number(secondsB) > 0 ? Number(secondsB) : 3);
+        const sb = Number(secondsB) > 0 ? Number(secondsB) : sa;
         const pickedA = this.waves.pickIfRandom(waveA);
         const pickedB = this.waves.pickIfRandom(waveB);
-        this.startChannel('A', { strength: a, wave: pickedA, seconds: seconds }, 'test');
-        this.startChannel('B', { strength: b, wave: pickedB, seconds: seconds }, 'test');
-        return { a: a, b: b, waveA: this.waves.normalize(pickedA), waveB: this.waves.normalize(pickedB), seconds: seconds };
+        const owner = this.nextTestOwner();
+        this.startChannel('A', { strength: a, wave: pickedA, seconds: sa }, owner);
+        this.startChannel('B', { strength: b, wave: pickedB, seconds: sb }, owner);
+        return {
+            a: a, b: b,
+            waveA: this.waves.normalize(pickedA),
+            waveB: this.waves.normalize(pickedB),
+            secondsA: sa, secondsB: sb
+        };
     }
 
     testActions(actions, fallbackSeconds) {
         if (!this.connected) { throw new Error('设备未连接'); }
         const list = Array.isArray(actions) ? actions : [actions];
         const applied = [];
+        const owner = this.nextTestOwner();
         for (const a of list) {
             if (!a || !a.channel) { continue; }
             const ch = String(a.channel).toUpperCase();
             if (!this.channels[ch]) { continue; }
             if (Array.isArray(a.steps) && a.steps.length) {
-                this.playSequence(ch, a.steps, 'test', { loop: a.loop, overlap: a.overlap });
+                this.playSequence(ch, a.steps, owner, { loop: a.loop, overlap: a.overlap });
                 applied.push({ channel: ch, steps: a.steps, loop: a.loop, seconds: fallbackSeconds });
                 continue;
             }
@@ -334,7 +364,7 @@ class OpossumDevice {
             if (strength <= 0) { continue; }
             const seconds = Number(a.seconds) > 0 ? Number(a.seconds) : (fallbackSeconds || 3);
             const pickedWave = this.waves.pickIfRandom(a.wave || a.pulse);
-            this.startChannel(ch, { strength: strength, wave: pickedWave, seconds: seconds }, 'test');
+            this.startChannel(ch, { strength: strength, wave: pickedWave, seconds: seconds }, owner);
             applied.push({ channel: ch, strength: strength, wave: this.waves.normalize(pickedWave), seconds: seconds });
         }
         if (!applied.length) { throw new Error('规则没有可测试的输出'); }
@@ -371,8 +401,20 @@ class OpossumDevice {
             name: this.name,
             address: this.address,
             channels: {
-                A: { strength: this.channels.A.strength, wave: this.channels.A.wave, active: this.channels.A.active },
-                B: { strength: this.channels.B.strength, wave: this.channels.B.wave, active: this.channels.B.active }
+                A: {
+                    strength: this.channels.A.strength,
+                    wave: this.channels.A.wave,
+                    active: this.channels.A.active,
+                    start: this.channels.A.start || 0,
+                    cycleMs: this.waves.cycleMs(this.channels.A.wave)
+                },
+                B: {
+                    strength: this.channels.B.strength,
+                    wave: this.channels.B.wave,
+                    active: this.channels.B.active,
+                    start: this.channels.B.start || 0,
+                    cycleMs: this.waves.cycleMs(this.channels.B.wave)
+                }
             },
             waves: this.waves.list(),
             error: this.lastError

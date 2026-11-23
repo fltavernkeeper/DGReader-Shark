@@ -367,7 +367,7 @@
         };
     }
 
-    // --- 战斗播报的语义层：TickerBTM / TickerBTMFL / TickerSys -------------
+    // --- 滚动播报的语义层：TickerBTM / TickerBTMFL / TickerSys -------------
     // 只 hook TickerManager.show 只能拿到“渲染后的文字”；这里拿到的是
     // 消息 ID（如 AttackEstrus / CrisisL3 / TrapActive），比关键词更准。
     if (typeof Game_Interpreter !== 'undefined' && Game_Interpreter.prototype.pluginCommand) {

@@ -7,6 +7,13 @@ const crypto = require('crypto');
 const RANDOM_WAVE = 'randomWave';
 const MAX_SECTIONS = 30;
 const MAX_POINTS = 4800; // 25ms/点 = 120 秒
+const PREVIEW_POINTS = 64;
+
+const PERIOD_MS = {
+    const: 0, sine: 400, tide: 1400, heart: 900, pulse: 320,
+    rampUp: 2200, rampDown: 2200, saw: 1000, random: 1000,
+    massage: 180, burst: 400, wave: 2000, knock: 1000, crawl: 3000
+};
 
 // 内置波形：t=毫秒，b=0-100
 const BUILTIN = {
@@ -81,10 +88,49 @@ class WaveLibrary {
         return Object.keys(BUILTIN).concat(this.custom.map((w) => w.name));
     }
 
+    preview(name) {
+        const n = this.normalize(name);
+        if (n === RANDOM_WAVE) { return []; }
+        if (BUILTIN[n]) {
+            const period = PERIOD_MS[n] || 0;
+            if (!period) { return new Array(PREVIEW_POINTS).fill(100); }
+            const fn = BUILTIN[n];
+            const out = [];
+            for (let i = 0; i < PREVIEW_POINTS; i++) {
+                out.push(clamp(fn((i / PREVIEW_POINTS) * period, 100), 0, 100));
+            }
+            return out;
+        }
+        const w = this.custom.filter((x) => x.name === n)[0];
+        if (!w || !w.points.length) { return []; }
+        const pts = w.points;
+        if (pts.length <= PREVIEW_POINTS) { return pts.slice(); }
+        const out = [];
+        for (let i = 0; i < PREVIEW_POINTS; i++) {
+            out.push(pts[Math.floor((i / PREVIEW_POINTS) * pts.length)]);
+        }
+        return out;
+    }
+
+    cycleMs(name) {
+        const n = this.normalize(name);
+        if (n === RANDOM_WAVE || n === 'const') { return 0; }
+        if (BUILTIN[n]) { return PERIOD_MS[n] || 0; }
+        const w = this.custom.filter((x) => x.name === n)[0];
+        return w ? w.points.length * 25 : 0;
+    }
+
     list() {
-        const builtins = Object.keys(BUILTIN).map((k) => ({ name: k, label: BUILTIN_LABELS[k] || k, type: 'builtin' }));
-        const custom = this.custom.map((w) => ({ name: w.name, label: w.name, type: 'custom', points: w.points.length }));
-        return [{ name: RANDOM_WAVE, label: '随机波形', type: 'special' }].concat(builtins, custom);
+        const builtins = Object.keys(BUILTIN).map((k) => ({
+            name: k, label: BUILTIN_LABELS[k] || k, type: 'builtin',
+            cycleMs: this.cycleMs(k), preview: this.preview(k)
+        }));
+        const custom = this.custom.map((w) => ({
+            name: w.name, label: w.name, type: 'custom', points: w.points.length,
+            cycleMs: this.cycleMs(w.name), preview: this.preview(w.name)
+        }));
+        return [{ name: RANDOM_WAVE, label: '随机波形', type: 'special', cycleMs: 0, preview: [] }]
+            .concat(builtins, custom);
     }
 
     isRandom(name) {

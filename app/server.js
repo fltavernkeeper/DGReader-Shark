@@ -1618,7 +1618,10 @@ function deliverActions(rule, action, ctx, edge) {
             }
         }
         for (const out of outputs) { out.apply(rule, a, ctx, edge); }
-        if (outputSettings.mode === 'device') { device.applyAction(a, edge, rule.id); }
+        if (outputSettings.mode === 'device') {
+            device.applyAction(a, edge, rule.id);
+            broadcast({ type: 'device', device: device.status(), ts: Date.now() });
+        }
         broadcast({ type: 'action', rule: rule.id, edge: edge, action: a, ts: Date.now() });
     }
 }
@@ -1915,7 +1918,7 @@ function handle(obj) {
     }
 
     if (changed) {
-        // 战斗播报 / 战斗日志可能在同一批 socket 数据里连续到达多条。
+        // 滚动播报 / 战斗日志可能在同一批 socket 数据里连续到达多条。
         // 逐条立即评估，避免后一条覆盖前者，导致规则只看到最后一条。
         if (obj.t === 'ticker' || obj.t === 'battlelog') {
             if (evalTimer) { clearTimeout(evalTimer); evalTimer = null; }
@@ -2898,13 +2901,28 @@ if (require.main === module) {
                     try { m = JSON.parse(body); } catch (e) { }
                     const a = Math.max(0, Math.min(200, Number(m.a) || 0));
                     const b = Math.max(0, Math.min(200, Number(m.b) || 0));
-                    const seconds = Math.max(0.2, Math.min(30, Number(m.seconds) || 3));
+                    const fallbackSeconds = Math.max(0.05, Math.min(600, Number(m.seconds) || 3));
+                    const secondsA = Math.max(0.05, Math.min(600, Number(m.secondsA) || fallbackSeconds));
+                    const secondsB = Math.max(0.05, Math.min(600, Number(m.secondsB) || fallbackSeconds));
                     const waveA = String(m.waveA || m.pattern || 'const');
                     const waveB = String(m.waveB || m.pattern || 'const');
-                    device.test(a, b, waveA, waveB, seconds)
+                    const channel = String(m.channel || '').toUpperCase();
+                    if (channel === 'A' || channel === 'B') {
+                        const strength = channel === 'A' ? a : b;
+                        const wave = channel === 'A' ? waveA : waveB;
+                        const sec = channel === 'A' ? secondsA : secondsB;
+                        device.testChannel(channel, strength, wave, sec)
+                            .then((r) => {
+                                setTimeout(() => { broadcast({ type: 'device', device: device.status(), ts: Date.now() }); }, sec * 1000 + 200);
+                                jsonRes(res, 200, { ok: true, channel: channel, a: a, b: b, secondsA: sec, secondsB: sec, waveA: r.wave, waveB: r.wave, wave: r.wave, device: device.status(), serverNow: Date.now() });
+                            })
+                            .catch((e) => jsonRes(res, 500, { ok: false, error: e.message }));
+                        return;
+                    }
+                    device.test(a, b, waveA, waveB, secondsA, secondsB)
                         .then((r) => {
-                            setTimeout(() => { broadcast({ type: 'device', device: device.status(), ts: Date.now() }); }, seconds * 1000 + 200);
-                            jsonRes(res, 200, { ok: true, a: a, b: b, seconds: seconds, waveA: r.waveA, waveB: r.waveB });
+                            setTimeout(() => { broadcast({ type: 'device', device: device.status(), ts: Date.now() }); }, Math.max(secondsA, secondsB) * 1000 + 200);
+                            jsonRes(res, 200, { ok: true, a: a, b: b, secondsA: secondsA, secondsB: secondsB, waveA: r.waveA, waveB: r.waveB, device: device.status(), serverNow: Date.now() });
                         })
                         .catch((e) => jsonRes(res, 500, { ok: false, error: e.message }));
                 });
@@ -2912,11 +2930,19 @@ if (require.main === module) {
             }
 
             if (url === '/api/device/stop' && req.method === 'POST') {
-                device.stopWave();
-                device.levels = { A: 0, B: 0 };
-                device.setStrength(0, 0)
-                    .then(() => jsonRes(res, 200, { ok: true, device: device.status() }))
-                    .catch((e) => jsonRes(res, 500, { ok: false, error: e.message }));
+                readBody(req, (err, body) => {
+                    let m = {};
+                    try { m = JSON.parse(body || '{}'); } catch (e) { }
+                    const channel = String(m.channel || '').toUpperCase();
+                    if (channel === 'A' || channel === 'B') {
+                        device.stopChannel(channel);
+                    } else {
+                        device.stopAll();
+                    }
+                    device.setStrength(device.channels.A.strength, device.channels.B.strength)
+                        .then(() => jsonRes(res, 200, { ok: true, device: device.status() }))
+                        .catch((e) => jsonRes(res, 500, { ok: false, error: e.message }));
+                });
                 return;
             }
 

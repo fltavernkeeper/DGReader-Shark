@@ -36,6 +36,10 @@
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .panel>.hd{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12px;color:var(--muted)}
   .panel>.hd b{color:var(--text);font-size:13px}
+  .read-help>summary{list-style:none;cursor:pointer}
+  .read-help>summary::-webkit-details-marker{display:none}
+  .read-help>summary::after{content:'▸';margin-left:0;color:var(--muted)}
+  .read-help[open]>summary::after{content:'▾'}
   .panel>.bd{padding:14px}
   .meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
   .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#1b2432;color:var(--muted);border:1px solid var(--line)}
@@ -58,11 +62,27 @@
   .ch{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
   .ch .name{color:var(--muted);font-size:12px}.ch .val{font-size:28px;font-weight:700}
   .ch .pulse{color:var(--muted);font-size:12px;min-height:18px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wave-previews{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.wave-preview{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0}
+.wave-preview-label{color:var(--muted);font-size:12px;line-height:16px;margin-bottom:2px}
+.wave-preview canvas{display:block;width:100%;height:42px}
+.wave-test{display:flex;align-items:flex-end;gap:6px;margin-top:6px;flex-wrap:wrap}
+.wave-test .f{flex:1 1 110px;min-width:0}
+.wave-test .note{font-size:12px;white-space:nowrap}
+.wave-test .btn{padding:4px 8px;font-size:12px}
+@media (max-width:640px){.wave-previews{grid-template-columns:1fr}}
   .hint{color:var(--muted);font-size:12px;padding:8px 14px;border-top:1px solid var(--line);background:var(--panel2)}
   footer{color:#5b6b7f;font-size:12px;text-align:center;padding:0 20px 24px}
   footer .ver{display:block;margin-top:6px;color:#7d8da3;font-size:11px}
   code{background:#18222e;padding:1px 5px;border-radius:4px;font-family:"Cascadia Mono",Consolas,"Courier New",monospace}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  /* 表单行：label 内含文字+控件时，按钮与控件底部对齐，避免和标签文字齐平 */
+  .row:has(> label.f):has(> button){align-items:flex-end}
+  /* 滑杆行：数值与滑杆垂直居中 */
+  .row:has(> label.f):has(input[type="range"]){align-items:flex-end}
+  .range-line{display:flex;align-items:center;gap:10px;width:100%}
+  .range-line input[type="range"]{flex:1;min-width:0}
+  .range-val{width:38px;text-align:right;font-variant-numeric:tabular-nums;line-height:1}
   label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
   input,select,textarea{background:#0a0e13;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font:13px/1.4 "Cascadia Mono",Consolas,monospace}
   textarea{width:100%;min-height:64px;resize:vertical}
@@ -143,7 +163,7 @@
   <div class="grid">
     <div class="col">
       <section class="panel">
-        <div class="hd"><b>对话框事件文本</b><span>Game_Message / Window_Message</span>
+        <div class="hd"><b>对话框事件文本</b>
           <select id="msgLogCount" style="margin-left:auto;width:auto;min-width:70px" title="显示条数">
             <option value="1" selected>1 条</option>
             <option value="2">2 条</option>
@@ -161,7 +181,7 @@
       </section>
 
       <section class="panel">
-        <div class="hd"><b>战斗播报</b><span>TickerManager / TickerBTM</span>
+        <div class="hd"><b>滚动播报</b>
           <select id="tickerLogCount" style="margin-left:auto;width:auto;min-width:70px" title="显示条数">
             <option value="1">1 条</option>
             <option value="2" selected>2 条</option>
@@ -172,14 +192,14 @@
         </div>
         <div class="bd">
           <div class="meta" id="tickMeta"></div>
-          <div class="text dim" id="tickText">等待战斗播报……</div>
+          <div class="text dim" id="tickText">等待滚动播报……</div>
           <pre class="raw" id="tickRaw"></pre>
           <div class="stamp" id="tickTime"></div>
         </div>
       </section>
 
       <section class="panel">
-        <div class="hd"><b>战斗日志</b><span>Window_BattleLog / 敌人行动 / 伤害 / 状态</span>
+        <div class="hd"><b>战斗日志</b>
           <select id="blLogCount" style="margin-left:auto;width:auto;min-width:70px" title="显示条数">
             <option value="1">1 条</option>
             <option value="2" selected>2 条</option>
@@ -393,6 +413,25 @@
           </details>
         </div>
       </details>
+      <details class="panel read-help">
+        <summary class="hd"><b>说明</b></summary>
+        <div class="bd note" style="line-height:1.8">
+          <b>播放开关</b><br>
+          ▶ 播放/恢复：开始处理规则和播放队列。<br>
+          ⏸ 暂停：立即停止当前振动，保留未完成动作和队列；暂停期间触发的规则继续加入队列。点 ▶ 后先重播暂停前未完成动作，再按队列顺序播放。<br>
+          ⏹ 停止：立即停止并清空当前动作和队列；点 ▶ 前不再发送振动指令。<br><br>
+          <b>播放模式</b><br>
+          保持：条件消失后，当前动作继续播完。<br>
+          实时：条件消失立即停止。以文字为关键词触发的规则可能因为快速翻页而停止播放。<br><br>
+          <b>冲突时</b><br>
+          跳过：当前规则未播放完毕时触发新规则，将跳过新规则。<br>
+          排队：按触发顺序等待；本次动作使用的 A/B 通道都空闲后，再播下一批。<br>
+          插队：立即停止当前动作，播放新触发的规则。<br>
+          分开排队：A/B 通道各自排队，哪个通道空闲就先播哪个，可能不同步。<br><br>
+          队列上限：暂停或忙碌时最多保留的待播动作数，一个通道占用一个动作。队列满后不会再写入。<br><br>
+          兼容性说明：不同制作组使用代码的习惯不同，部分人名或特殊符号可能显示不一致。规则建议避免依赖这些内容。如确需匹配，请使用界面实际显示的文本，并优先选择“包含”。
+        </div>
+      </details>
     </div>
 
     <div class="col">
@@ -402,25 +441,6 @@
       </section>
     </div>
   </div>
-  <section class="panel" style="margin-top:16px">
-    <div class="hd"><b>说明</b></div>
-    <div class="bd note" style="line-height:1.8">
-      <b>播放开关</b><br>
-      ▶ 播放/恢复：开始处理规则和播放队列。<br>
-      ⏸ 暂停：立即停止当前振动，保留未完成动作和队列；暂停期间触发的规则继续加入队列。点 ▶ 后先重播暂停前未完成动作，再按队列顺序播放。<br>
-      ⏹ 停止：立即停止并清空当前动作和队列；点 ▶ 前不再发送振动指令。<br><br>
-      <b>播放模式</b><br>
-      保持：条件消失后，当前动作继续播完。<br>
-      实时：条件消失立即停止。以文字为关键词触发的规则可能因为快速翻页而停止播放。<br><br>
-      <b>冲突时</b><br>
-      跳过：当前规则未播放完毕时触发新规则，将跳过新规则。<br>
-      排队：按触发顺序等待；本次动作使用的 A/B 通道都空闲后，再播下一批。<br>
-      插队：立即停止当前动作，播放新触发的规则。<br>
-      分开排队：A/B 通道各自排队，哪个通道空闲就先播哪个，可能不同步。<br><br>
-      队列上限：暂停或忙碌时最多保留的待播动作数，一个通道占用一个动作。队列满后不会再写入。<br><br>
-      兼容性说明：不同制作组使用代码的习惯不同，部分人名或特殊符号可能显示不一致。规则建议避免依赖这些内容。如确需匹配，请使用界面实际显示的文本，并优先选择“包含”。
-    </div>
-  </section>
 </main>
 
 <!-- ============================= 规则 ============================= -->
@@ -438,6 +458,7 @@
       </div>
     </section>
 
+    <div class="col">
     <section class="panel">
       <div class="hd"><b>编辑规则</b><span id="editingHint">新建</span></div>
       <div class="bd">
@@ -452,7 +473,7 @@
             <label class="f" style="width:150px">来源
               <select id="rSource">
                 <option value="msg">对话框文本</option>
-                <option value="ticker">战斗播报</option>
+                <option value="ticker">滚动播报</option>
                 <option value="battlelog">战斗日志</option>
                 <option value="ocr">OCR 文本</option>
                 <option value="unity">Unity 文本</option>
@@ -584,9 +605,13 @@
           <button class="btn" id="btnCancel">清空表单</button>
           <button class="btn danger" id="btnDelete" style="display:none">删除</button>
         </div>
-        <div class="note" id="conditionExamples" style="margin-top:10px" translate="no"></div>
       </div>
     </section>
+    <details class="panel read-help">
+      <summary class="hd"><b>说明</b></summary>
+      <div class="bd note" id="conditionExamples" translate="no"></div>
+    </details>
+    </div>
   </div>
 </main>
 
@@ -682,6 +707,7 @@
           <button class="btn danger" id="btnGRemove">移除插件</button>
           <button class="btn" id="btnGStatus">检查状态</button>
         </div>
+        <div class="note" id="gStatus" style="margin-top:10px">未检查</div>
         <div class="note" style="margin-top:10px">
           插件作用：从游戏运行时读取已经解码好的文字。<br>
           RPG Maker MV制作的游戏大部分可以读取，Unity制作的游戏并没有完全适配，实在不行请用OCR功能。<br>
@@ -689,7 +715,6 @@
           安装/移除只改插件文件，不会改写游戏原始数据，并会自动备份。<br>
           插件已安装但完全读不到文本？请彻底退出 DGReader（包括后台进程），重新启动后再启动游戏重连。
         </div>
-        <div class="note" id="gStatus" style="margin-top:10px">未检查</div>
       </div>
     </section>
 
@@ -749,7 +774,7 @@
         </div>
 
         <div class="row" style="margin-top:10px">
-          <button class="btn primary" id="btnOcrShot">截屏</button>
+          <button class="btn" id="btnOcrShot">截屏</button>
           <button class="btn" id="btnOcrShotDelay">5s后截屏</button>
         </div>
         <div class="note" id="ocrRoiText" style="margin-top:6px">点击按钮后，在截图上按住左键拖动，框住要识别的文字区域</div>
@@ -817,30 +842,36 @@
       <div class="hd"><b>负鼠 BLE</b></div>
       <div class="bd">
         <div class="row">
-          <label class="f" style="flex:1">蓝牙地址<input id="devAddress" placeholder="扫描后自动填入，或手动输入 12 位地址" /></label>
-          <button class="btn primary" id="btnDevConnect">连接</button>
-          <button class="btn" id="btnDevDisconnect">断开</button>
-        </div>
-        <div class="row" style="margin-top:8px">
           <button class="btn" id="btnDevScan">扫描附近负鼠</button>
           <select id="devFound" style="flex:1">
             <option value="">点击“扫描附近负鼠”查找设备</option>
           </select>
-          <button class="btn" id="btnDevUse">使用选中</button>
-        </div>
-        <div class="note" style="margin-top:6px">
-          首次使用：Windows 设置 → 蓝牙和其他设备 → 添加设备 → 蓝牙 → 显示所有设备 → 选择负鼠设备名（数字+英文）。<br />
-          配对完成后回到这里，点“扫描附近负鼠” → 使用选中 → 连接。地址会自动记住，以后可直接连接。<br />
-          扫描约 6–30 秒，请让负鼠开机，连按5下方形HOME键使其蓝牙图标颜色变黄。
+          <button class="btn primary" id="btnDevConnect">连接</button>
+          <button class="btn" id="btnDevDisconnect">断开</button>
         </div>
         <div class="note" id="devStatus" style="margin-top:10px">未连接</div>
+        <details class="note" style="margin-top:8px">
+          <summary>手动输入蓝牙地址</summary>
+          <div class="row" style="margin-top:6px">
+            <label class="f" style="flex:1">蓝牙地址
+              <input id="devAddress" placeholder="手动输入 12 位蓝牙地址" />
+            </label>
+          </div>
+        </details>
+        <div class="note" style="margin-top:6px">
+          首次使用：Windows 设置 → 蓝牙和其他设备 → 添加设备 → 蓝牙 → 显示所有设备 → 选择负鼠设备名（数字+英文）。<br />
+          配对完成后回到这里，点“扫描附近负鼠” → 选择设备 → 连接。地址会自动记住，以后可直接连接。<br />
+          扫描约 6–30 秒，请让负鼠开机，连按5下方形HOME键使其蓝牙图标颜色变黄。
+        </div>
 
         <div class="row" style="margin-top:14px">
           <label class="f" style="flex:1">通道 A 强度
-            <input type="range" id="devA" min="0" max="200" value="50" />
+            <div class="range-line">
+              <input type="range" id="devA" min="0" max="200" value="50" />
+              <span class="range-val" id="devAVal">50</span>
+            </div>
           </label>
-          <span id="devAVal" style="width:44px;text-align:right">50</span>
-          <label class="f" style="width:130px">A 波形
+          <label class="f" style="width:150px">A 通道波形
             <select id="devWaveA">
               <option value="const">持续</option>
               <option value="sine">呼吸</option>
@@ -862,10 +893,12 @@
         </div>
         <div class="row" style="margin-top:8px">
           <label class="f" style="flex:1">通道 B 强度
-            <input type="range" id="devB" min="0" max="200" value="50" />
+            <div class="range-line">
+              <input type="range" id="devB" min="0" max="200" value="50" />
+              <span class="range-val" id="devBVal">50</span>
+            </div>
           </label>
-          <span id="devBVal" style="width:44px;text-align:right">50</span>
-          <label class="f" style="width:130px">B 波形
+          <label class="f" style="width:150px">B 通道波形
             <select id="devWaveB">
               <option value="const">持续</option>
               <option value="sine">呼吸</option>
@@ -886,9 +919,31 @@
           </label>
         </div>
 
-        <div class="row" style="margin-top:14px">
-          <button class="btn primary" id="btnDevTest">测试 3 秒</button>
-          <button class="btn danger" id="btnDevStop">停止</button>
+        <div class="wave-previews" id="devWavePreviews">
+          <div class="wave-preview">
+            <div class="wave-preview-label">通道 A</div>
+            <canvas id="devWavePreviewA" height="42"></canvas>
+            <div class="wave-test">
+              <label class="f"><span id="devTestDurationLabelA">测试周期</span>
+                <input id="devTestCyclesA" type="number" min="1" max="30" step="1" value="3" />
+              </label>
+              <span id="devTestDurationA" class="note"></span>
+              <button class="btn primary" id="btnDevTestA">测试</button>
+              <button class="btn danger" id="btnDevStopA">停止</button>
+            </div>
+          </div>
+          <div class="wave-preview">
+            <div class="wave-preview-label">通道 B</div>
+            <canvas id="devWavePreviewB" height="42"></canvas>
+            <div class="wave-test">
+              <label class="f"><span id="devTestDurationLabelB">测试周期</span>
+                <input id="devTestCyclesB" type="number" min="1" max="30" step="1" value="3" />
+              </label>
+              <span id="devTestDurationB" class="note"></span>
+              <button class="btn primary" id="btnDevTestB">测试</button>
+              <button class="btn danger" id="btnDevStopB">停止</button>
+            </div>
+          </div>
         </div>
 
         <div class="panel2" style="margin-top:14px">
@@ -1463,16 +1518,16 @@
     } else {
       html = '<b>条件示例：</b><br>' +
         '· 对话框文本 <b>包含</b> “游泳” → A 通道 35 / 呼吸 / 3 秒<br>' +
-        '· 战斗播报 <b>正则</b> “今天天气怎么样|你吃了吗” → A 70 / 持续 / 3 秒<br>' +
+        '· 滚动播报 <b>正则</b> “今天天气怎么样|你吃了吗” → A 70 / 持续 / 3 秒<br>' +
         '· 变量 <b>≥</b> 80（选 estrus）→ B 50 / 潮汐 / 0 秒（持续到条件结束）<br><br>' +
         '<b>“和”与“或”怎么写：</b><br>' +
         '· <b>或</b>（任意一个满足就触发）：正则里用 <code>|</code>，例如 <code>今天天气怎么样|你吃了吗</code> 表示出现“今天天气怎么样”<b>或</b>“你吃了吗”都触发；高级表达式里也可以用 <code>||</code>。<br>' +
-        '· <code>||</code> 可以同时引用不同来源：左边是对话框文本，右边是战斗播报 ID，任意一个成立就触发。<br>' +
+        '· <code>||</code> 可以同时引用不同来源：左边是对话框文本，右边是滚动播报 ID，任意一个成立就触发。<br>' +
         '· <b>和</b>（必须同时满足）：请把来源切到“高级表达式”，用 <code>&amp;&amp;</code>，例如 <code>mapId === 63 &amp;&amp; v(1027) &gt;= 80</code>、<code>estrus &gt;= 80 &amp;&amp; lust &gt;= 50</code>。<br>' +
         '· 简单条件一次只能判断一个来源；要“和”就必须用高级表达式。<br>' +
         '· “包含”是纯文本包含；“正则”里的 <code>|</code> 才是“或”。<br><br>' +
         '<b>高级表达式使用方式：</b><br>' +
-        '· 文本：<code>/文字/.test(msg)</code> 对话框、<code>/文字/.test(ticker)</code> 左上角战斗播报、<code>/文字/.test(battlelog)</code> 战斗日志<br>' +
+        '· 文本：<code>/文字/.test(msg)</code> 对话框、<code>/文字/.test(ticker)</code> 左上角滚动播报、<code>/文字/.test(battlelog)</code> 战斗日志<br>' +
         '· 变量：<code>v(1027) &gt;= 80</code>（1027 是变量代号，80 是阈值）<br>' +
         '· 地图：<code>mapId === 63</code><br>' +
         '· 图标/颜色：<code>tickerIcons.includes(906)</code>、<code>tickerColors.includes(27)</code>、<code>msgIcons.includes(12)</code>、<code>msgColors.includes(4)</code><br>' +
@@ -1480,7 +1535,7 @@
         '· 组合：<code>&amp;&amp;</code> 表示和，<code>||</code> 表示或；混合使用时建议加括号。<br><br>' +
         '<b>文字检测来源：</b><br>' +
         '· 对话框文本：角色对话内容（含角色名）<br>' +
-        '· 战斗播报：屏幕左上角 的Ticker 文本<br>' +
+        '· 滚动播报：屏幕左上角 的Ticker 文本<br>' +
         '· 战斗日志：Window_BattleLog（敌人行动/伤害/状态）<br>' +
         '· 播报 ID：语义 ID（如 TrapActive），比关键词更稳定<br>' +
         '· OCR 文本：仅 OCR 模式可用，只支持“包含 / 正则”<br>' +
@@ -1662,7 +1717,7 @@
 
 // ---------------- 规则编辑器 ----------------
   var SOURCE_NAMES = {
-    msg: '对话框', ticker: '战斗播报', battlelog: '战斗日志', ocr: 'OCR 文本',
+    msg: '对话框', ticker: '滚动播报', battlelog: '战斗日志', ocr: 'OCR 文本',
     unity: 'Unity 文本',
     tickerId: '播报 ID', var: '变量', switch: '开关', expression: '高级表达式'
   };
@@ -1863,13 +1918,13 @@
     $('opWrap').style.display = isExpr ? 'none' : '';
     $('valueWrap').style.display = isExpr ? 'none' : '';
     $('varWrap').style.display = isVar ? '' : 'none';
-    var ph = '关键词 / 正则';
-    if (source === 'tickerId') { ph = '例如 AttackEstrus 或 TrapActive'; }
-    if (source === 'var') { ph = '阈值，例如 80'; }
+    var ph = t('关键词 / 正则');
+    if (source === 'tickerId') { ph = t('例如 AttackEstrus 或 TrapActive'); }
+    if (source === 'var') { ph = t('阈值，例如 80'); }
     if (source === 'msg' || source === 'ticker' || source === 'battlelog') {
       var op = $('rOp').value;
-      if (op === 'icon') { ph = '图标编号，例如 906'; }
-      if (op === 'color') { ph = '颜色编号 0-31，例如 4'; }
+      if (op === 'icon') { ph = t('图标编号，例如 906'); }
+      if (op === 'color') { ph = t('颜色编号 0-31，例如 4'); }
     }
     $('rValue').placeholder = ph;
     var canRepeat = source === 'var';
@@ -2198,10 +2253,13 @@
       $('devB').value = s.channels.B.strength || 0;
       $('devWaveA').value = s.channels.A.wave || 'const';
       $('devWaveB').value = s.channels.B.wave || 'const';
+      devChannelState.A = s.channels.A;
+      devChannelState.B = s.channels.B;
       $('devAVal').textContent = $('devA').value;
       $('devBVal').textContent = $('devB').value;
     }
     if (s.address) { $('devAddress').value = s.address; }
+    updateDevWavePreviews();
   }
 
   function loadDevice() {
@@ -2230,13 +2288,6 @@
     });
   }
 
-  function devUseFound() {
-    var v = $('devFound').value;
-    if (!v) { $('devStatus').textContent = t('请先扫描并选择一个设备'); return; }
-    $('devAddress').value = v;
-    $('devStatus').textContent = tf('已选择 {name}，点击“连接”', { name: v });
-  }
-
   function devConnect() {
     var address = $('devAddress').value.trim();
     if (!address) { $('devStatus').textContent = t('请先填蓝牙地址'); return; }
@@ -2259,22 +2310,70 @@
     }).catch(function () { });
   }
 
-  function devTest() {
+  function devTest(ch) {
+    var runId = ++devTestRunId[ch];
+    clearDevTestTimer(ch);
+    if (!state.device || !state.device.connected) {
+      $('devStatus').textContent = t('设备未连接');
+      return;
+    }
     var a = Number($('devA').value) || 0;
     var b = Number($('devB').value) || 0;
     var waveA = $('devWaveA').value;
     var waveB = $('devWaveB').value;
-    $('devStatus').textContent = tf('测试中：A={a}（{waveA}）  B={b}（{waveB}）', { a: a, b: b, waveA: waveA, waveB: waveB });
+    updateDevTestUI();
+    var seconds = devTestSeconds(ch);
+    var strength = ch === 'A' ? a : b;
+    var wave = ch === 'A' ? waveA : waveB;
+    $('devStatus').textContent = tf('测试中：A={a}（{waveA}）  B={b}（{waveB}）', { a: a, b: b, waveA: waveA, waveB: waveB }) +
+      ' · ' + ch + ' ' + formatTestSeconds(seconds) + 's';
     fetch('/api/device/test', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ a: a, b: b, waveA: waveA, waveB: waveB, seconds: 3 })
+      body: JSON.stringify({
+        channel: ch, a: a, b: b, waveA: waveA, waveB: waveB,
+        secondsA: ch === 'A' ? seconds : 3,
+        secondsB: ch === 'B' ? seconds : 3
+      })
     }).then(function (r) { return r.json(); }).then(function (d) {
-      if (!d.ok) { $('devStatus').textContent = t('测试失败：') + (d.error || ''); }
-    }).catch(function (e) { $('devStatus').textContent = t('测试失败：') + e.message; });
+      if (runId !== devTestRunId[ch]) { return; }
+      if (!d.ok) { $('devStatus').textContent = t('测试失败：') + (d.error || ''); return; }
+      devClockOffset = (Number(d.serverNow) || Date.now()) - Date.now();
+      var serverChannel = d.device && d.device.channels ? d.device.channels[ch] : null;
+      var start = serverChannel && Number(serverChannel.start) ? Number(serverChannel.start) : (Date.now() + devClockOffset);
+      var cycleMs = serverChannel && Number(serverChannel.cycleMs) ? Number(serverChannel.cycleMs) : waveCycleMs(wave);
+      var end = start + seconds * 1000;
+      devChannelState[ch] = {
+        active: seconds > 0,
+        start: start,
+        end: end,
+        cycleMs: cycleMs
+      };
+      drawDevWavePreviews();
+      var stopDelay = Math.max(0, end - (Date.now() + devClockOffset));
+      devTestTimers[ch] = setTimeout(function () {
+        if (runId !== devTestRunId[ch]) { return; }
+        devChannelState[ch] = { active: false, start: 0, cycleMs: 0 };
+        drawDevWavePreviews();
+      }, stopDelay);
+      devTestRefreshTimers[ch] = setTimeout(function () {
+        if (runId !== devTestRunId[ch]) { return; }
+        loadDevice();
+      }, stopDelay + 300);
+    }).catch(function (e) {
+      if (runId !== devTestRunId[ch]) { return; }
+      $('devStatus').textContent = t('测试失败：') + e.message;
+    });
   }
 
-  function devStop() {
-    fetch('/api/device/stop', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+  function devStop(ch) {
+    devTestRunId[ch] += 1;
+    clearDevTestTimer(ch);
+    devChannelState[ch] = { active: false, start: 0, cycleMs: 0 };
+    drawDevWavePreviews();
+    fetch('/api/device/stop', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ channel: ch })
+    }).then(function (r) { return r.json(); }).then(function (d) {
       if (d.device) { renderDevice(d.device); }
       $('devStatus').textContent = t('已停止');
     }).catch(function () { });
@@ -2437,49 +2536,56 @@
 
   function gStatus() {
     var dir = $('gDir').value.trim();
-    if (!dir) { setStatus($('gStatus'), '请先选择游戏目录', false); return; }
+    if (!dir) { setStatus($('gStatus'), t('请先选择游戏目录'), false); return; }
     fetch('/api/game/status?dir=' + encodeURIComponent(dir))
       .then(function (r) { return r.json(); }).then(function (d) {
         var s = d.status || {};
-        if (!s.ok) { setStatus($('gStatus'), s.error || '无效目录', false); return; }
+        if (!s.ok) { setStatus($('gStatus'), s.error || t('无效目录'), false); return; }
         if (s.engine === 'unity-mono') {
-          $('gStatus').textContent = 'Unity Mono 探针' + (s.installed ? '已安装' : '未安装') +
-            ' / ' + (s.hasTmp ? '检测到 TextMeshPro' : '未检测到 TextMeshPro（可能只支持部分文本）');
+          var tmp = s.hasTmp ? t('检测到 TextMeshPro') : t('未检测到 TextMeshPro（可能只支持部分文本）');
+          $('gStatus').textContent = tf('Unity Mono 探针{installed} / {tmp}', {
+            installed: s.installed ? t('已安装') : t('未安装'),
+            tmp: tmp
+          });
           $('gStatus').className = s.installed ? 'note ok' : 'note';
           return;
         }
-        $('gStatus').textContent = '插件' + (s.installed ? '已安装' : '未安装') +
-          ' / ' + (s.registered ? '已注册' : '未注册') + ' / 插件总数 ' + s.entries +
-          ' / 编码 ' + (s.encoding || '?') + (s.bom ? ' (BOM)' : '') +
-          (s.parseError ? ' / 解析：' + s.parseError : '');
+        var text = tf('插件{installed} / {registered} / 插件总数 {entries} / 编码 {encoding}', {
+          installed: s.installed ? t('已安装') : t('未安装'),
+          registered: s.registered ? t('已注册') : t('未注册'),
+          entries: s.entries,
+          encoding: s.encoding || '?'
+        }) + (s.bom ? ' (BOM)' : '');
+        if (s.parseError) { text += t(' / 解析：') + s.parseError; }
+        $('gStatus').textContent = text;
         $('gStatus').className = (s.installed && s.registered) ? 'note ok' : 'note';
       }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
   }
 
   function gInstall() {
     var dir = $('gDir').value.trim();
-    if (!dir) { setStatus($('gStatus'), '请先选择游戏目录', false); return; }
+    if (!dir) { setStatus($('gStatus'), t('请先选择游戏目录'), false); return; }
     fetch('/api/game/install', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ gameDir: dir })
     }).then(function (r) { return r.json(); }).then(function (d) {
-      if (!d.ok) { throw new Error(d.error || '安装失败'); }
+      if (!d.ok) { throw new Error(d.error || t('安装失败')); }
       gStatus();
-      setStatus($('gStatus'), d.status && d.status.engine === 'unity-mono' ? 'Unity 探针已安装' : '插件已安装（已备份 plugins.js）', true);
+      setStatus($('gStatus'), d.status && d.status.engine === 'unity-mono' ? t('Unity 探针已安装') : t('插件已安装（已备份 plugins.js）'), true);
     }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
   }
 
   function gRemove() {
     var dir = $('gDir').value.trim();
-    if (!dir) { setStatus($('gStatus'), '请先选择游戏目录', false); return; }
-    if (!confirm('从游戏移除插件/探针？')) { return; }
+    if (!dir) { setStatus($('gStatus'), t('请先选择游戏目录'), false); return; }
+    if (!confirm(t('从游戏移除插件/探针？'))) { return; }
     fetch('/api/game/remove', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ gameDir: dir })
     }).then(function (r) { return r.json(); }).then(function (d) {
-      if (!d.ok) { throw new Error(d.error || '移除失败'); }
+      if (!d.ok) { throw new Error(d.error || t('移除失败')); }
       gStatus();
-      setStatus($('gStatus'), '插件已移除', true);
+      setStatus($('gStatus'), t('插件已移除'), true);
     }).catch(function (e) { setStatus($('gStatus'), e.message, false); });
   }
 
@@ -2580,6 +2686,163 @@
       }).join('');
       if (waveList.some(function (w) { return w.name === cur; })) { sel.value = cur; }
     });
+    updateDevWavePreviews();
+  }
+
+  function findWave(name) {
+    for (var i = 0; i < waveList.length; i++) {
+      if (waveList[i].name === name) { return waveList[i]; }
+    }
+    return null;
+  }
+
+  function waveCycleMs(name) {
+    var w = findWave(name);
+    return w && Number(w.cycleMs) > 0 ? Number(w.cycleMs) : 0;
+  }
+
+  function drawWavePreview(canvas, name, phase) {
+    if (!canvas) { return; }
+    var w = findWave(name);
+    var points = w && Array.isArray(w.preview) ? w.preview : [];
+    var dpr = window.devicePixelRatio || 1;
+    var width = Math.max(80, canvas.clientWidth || 200);
+    var height = 42;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(139,152,168,.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, height - 0.5); ctx.lineTo(width, height - 0.5); ctx.stroke();
+    if (!points.length) {
+      ctx.fillStyle = '#8b98a8';
+      ctx.font = '12px "Microsoft YaHei UI", "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(t('随机波形'), width / 2, height / 2);
+      return;
+    }
+    var pad = 3;
+    var maxY = height - pad;
+    var minY = pad;
+    ctx.beginPath();
+    for (var i = 0; i < points.length; i++) {
+      var x = points.length === 1 ? 0 : (i / (points.length - 1)) * width;
+      var y = maxY - (Math.max(0, Math.min(100, Number(points[i]) || 0)) / 100) * (maxY - minY);
+      if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
+    }
+    ctx.lineTo(width, maxY);
+    ctx.lineTo(0, maxY);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(74,222,128,.12)';
+    ctx.fill();
+    ctx.beginPath();
+    for (var j = 0; j < points.length; j++) {
+      var x2 = points.length === 1 ? 0 : (j / (points.length - 1)) * width;
+      var y2 = maxY - (Math.max(0, Math.min(100, Number(points[j]) || 0)) / 100) * (maxY - minY);
+      if (j === 0) { ctx.moveTo(x2, y2); } else { ctx.lineTo(x2, y2); }
+    }
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    if (phase !== null && phase !== undefined) {
+      var px = Math.max(0, Math.min(1, Number(phase) || 0)) * width;
+      ctx.strokeStyle = 'rgba(255,255,255,.85)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px + 0.5, pad);
+      ctx.lineTo(px + 0.5, maxY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(px, pad + 2, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+  }
+
+  function devChannelPhase(ch) {
+    var info = devChannelState[ch];
+    if (!info || !info.active || !Number(info.start) || !Number(info.cycleMs)) { return null; }
+    var now = Date.now() + devClockOffset;
+    if (info.end && now > info.end) { return null; }
+    var elapsed = now - Number(info.start);
+    if (elapsed < 0) { return 0; }
+    return (elapsed % Number(info.cycleMs)) / Number(info.cycleMs);
+  }
+
+  function drawDevWavePreviews() {
+    if (!$('devWaveA') || !$('devWaveB')) { return; }
+    drawWavePreview($('devWavePreviewA'), $('devWaveA').value, devChannelPhase('A'));
+    drawWavePreview($('devWavePreviewB'), $('devWaveB').value, devChannelPhase('B'));
+  }
+
+  function updateDevWavePreviews() {
+    drawDevWavePreviews();
+    updateDevTestUI();
+  }
+
+  var devTestMode = { A: 'cycles', B: 'cycles' };
+  var devChannelState = { A: null, B: null };
+  var devTestTimers = { A: null, B: null };
+  var devTestRefreshTimers = { A: null, B: null };
+  var devTestRunId = { A: 0, B: 0 };
+  var devClockOffset = 0;
+
+  function clearDevTestTimer(ch) {
+    if (devTestTimers[ch]) { clearTimeout(devTestTimers[ch]); devTestTimers[ch] = null; }
+    if (devTestRefreshTimers[ch]) { clearTimeout(devTestRefreshTimers[ch]); devTestRefreshTimers[ch] = null; }
+  }
+
+  function formatTestSeconds(sec) {
+    if (!Number.isFinite(sec) || sec <= 0) { return '0'; }
+    if (sec < 10) { return String(Number(sec.toFixed(2))); }
+    return String(Math.round(sec));
+  }
+
+  function updateDevTestChannel(ch) {
+    var input = $('devTestCycles' + ch);
+    if (!input) { return; }
+    var cycle = waveCycleMs($('devWave' + ch).value);
+    var mode = cycle > 0 ? 'cycles' : 'seconds';
+    if (devTestMode[ch] !== mode) {
+      devTestMode[ch] = mode;
+      input.value = '3';
+    }
+    var label = $('devTestDurationLabel' + ch);
+    var duration = $('devTestDuration' + ch);
+    if (mode === 'cycles') {
+      var maxCycles = Math.max(1, Math.min(30, Math.floor(600 / (cycle / 1000))));
+      input.min = '1';
+      input.max = String(maxCycles);
+      var cycles = Math.max(1, Math.min(maxCycles, Number(input.value) || 3));
+      if (String(cycles) !== String(input.value)) { input.value = String(cycles); }
+      label.textContent = t('测试周期');
+      var sec = (cycle * cycles) / 1000;
+      duration.textContent = tf('约 {s} 秒', { s: formatTestSeconds(sec) });
+    } else {
+      input.min = '1';
+      input.max = '60';
+      var secs = Math.max(1, Math.min(60, Number(input.value) || 3));
+      label.textContent = t('测试秒数');
+      duration.textContent = tf('约 {s} 秒', { s: formatTestSeconds(secs) });
+    }
+  }
+
+  function updateDevTestUI() {
+    updateDevTestChannel('A');
+    updateDevTestChannel('B');
+  }
+
+  function devTestSeconds(ch) {
+    var cycle = waveCycleMs($('devWave' + ch).value);
+    var input = $('devTestCycles' + ch);
+    var val = Math.max(1, Number(input.value) || 3);
+    if (cycle > 0 && devTestMode[ch] === 'cycles') {
+      return Math.min(600, (cycle * val) / 1000);
+    }
+    return Math.min(60, val);
   }
 
   async function waveImport() {
@@ -2988,6 +3251,7 @@
       return;
     }
     DGRMI18n.apply(this.value);
+    updateRuleForm();
     renderConditionExamples();
     setConn(connState);
     if (lastDevice) { renderDevice(lastDevice); }
@@ -3099,13 +3363,32 @@
   $('rOp').onchange = updateRuleForm;
   $('btnSaveOutput').onclick = saveOutput;
   $('btnDevScan').onclick = devScan;
-  $('btnDevUse').onclick = devUseFound;
   $('btnDevConnect').onclick = devConnect;
   $('btnDevDisconnect').onclick = devDisconnect;
-  $('btnDevTest').onclick = devTest;
-  $('btnDevStop').onclick = devStop;
+  $('devFound').onchange = function () {
+    if (!this.value) { return; }
+    $('devAddress').value = this.value;
+    $('devStatus').textContent = tf('已选择 {name}，点击“连接”', { name: this.value });
+  };
+  $('btnDevTestA').onclick = function () { devTest('A'); };
+  $('btnDevStopA').onclick = function () { devStop('A'); };
+  $('btnDevTestB').onclick = function () { devTest('B'); };
+  $('btnDevStopB').onclick = function () { devStop('B'); };
   $('devA').oninput = function () { $('devAVal').textContent = this.value; };
   $('devB').oninput = function () { $('devBVal').textContent = this.value; };
+  $('devWaveA').onchange = updateDevWavePreviews;
+  $('devWaveB').onchange = updateDevWavePreviews;
+  ['A', 'B'].forEach(function (ch) {
+    var input = $('devTestCycles' + ch);
+    if (input) {
+      input.oninput = updateDevTestUI;
+      input.onchange = updateDevTestUI;
+    }
+  });
+  window.addEventListener('resize', updateDevWavePreviews);
+  setInterval(function () {
+    if ($('view-device') && $('view-device').classList.contains('active')) { drawDevWavePreviews(); }
+  }, 80);
   try { localStorage.removeItem('dgreader.device'); } catch (e) { }
 
   $('projSelect').onchange = function () { switchProject(this.value); };
